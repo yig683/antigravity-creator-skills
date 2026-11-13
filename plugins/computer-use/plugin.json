@@ -1,0 +1,12 @@
+{
+  "name": "computer-use",
+  "displayName": "Computer Use (Desktop Control)",
+  "version": "1.0.0",
+  "description": "Claude Desktop-style full computer use for Windows: DPI-aware multi-monitor screenshots, region zoom, pixel-accurate mouse and Unicode keyboard control, window and app management, UI Automation inspection, clipboard helpers, and per-app permission guardrails.",
+  "logo": "assets/logo.svg",
+  "suggestedPrompts": [
+    "Ekranımın görüntüsünü al ve açık pencereleri listele",
+    "Not Defteri'ni aç, içine kısa bir not yaz ve Masaüstüne kaydet",
+    "Hesap Makinesi uygulamasını açıp görsel olarak bir hesaplama yap"
+  ]
+}

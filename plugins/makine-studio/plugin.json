@@ -1,0 +1,12 @@
+{
+  "name": "makine-studio",
+  "displayName": "Makine Studio (3D Blueprint Shorts)",
+  "version": "2.1.0",
+  "description": "Produces 30/60 FPS 3D architectural blueprint engineering explainer Shorts, Reels, TikTok (61-64s), and 16:9 videos using Blender EEVEE, Turkish neural voiceover (Chatterbox GPU or Edge-TTS), Whisper word alignment, 0ms-trimmed CC0 foley SFX at -14 LUFS, and animated HUD overlays.",
+  "logo": "assets/logo.svg",
+  "suggestedPrompts": [
+    "Yeni bir 'Nasıl İcat Edersin?' 3D blueprint Shorts bölümü üret",
+    "Asansör pilot bölümünü kendi çalışma klasörümde önizleme olarak çalıştır",
+    "Mevcut bir bölümün seslendirmesini, HUD etiketlerini veya altyazılarını güncelle"
+  ]
+}

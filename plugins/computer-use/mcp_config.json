@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "desktop": {
+      "command": "${PLUGIN_ROOT}/.venv/Scripts/python.exe",
+      "args": [
+        "${PLUGIN_ROOT}/server/computer_use_mcp.py"
+      ],
+      "env": {
+        "PYTHONUNBUFFERED": "1",
+        "COMPUTER_USE_DATA_DIR": "${PLUGIN_DATA}"
+      }
+    }
+  }
+}

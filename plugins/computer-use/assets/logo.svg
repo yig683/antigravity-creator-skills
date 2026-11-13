@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" fill="none">
+  <defs>
+    <linearGradient id="ag-rim" x1="10" y1="16" x2="118" y2="110" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#38BDF8"/>
+      <stop offset="50%" stop-color="#4285F4"/>
+      <stop offset="100%" stop-color="#A855F7"/>
+    </linearGradient>
+    <radialGradient id="ag-wash" cx="0.25" cy="0.3" r="0.85">
+      <stop offset="0%" stop-color="#38BDF8" stop-opacity="0.22"/>
+      <stop offset="65%" stop-color="#6366F1" stop-opacity="0.08"/>
+      <stop offset="100%" stop-color="#0E121A" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect x="12" y="18" width="104" height="72" rx="16" fill="#0E121A" stroke="url(#ag-rim)" stroke-width="4.5"/>
+  <rect x="14" y="20" width="100" height="68" rx="14" fill="url(#ag-wash)"/>
+  <path d="M52 90 L48 106 H80 L76 90" fill="url(#ag-rim)" fill-opacity="0.24" stroke="url(#ag-rim)" stroke-width="4" stroke-linejoin="round"/>
+  <line x1="38" y1="106" x2="90" y2="106" stroke="url(#ag-rim)" stroke-width="4.5" stroke-linecap="round"/>
+  <path d="M84 29 C85.5 38.5 87.5 40.5 97 42 C87.5 43.5 85.5 45.5 84 55 C82.5 45.5 80.5 43.5 71 42 C80.5 40.5 82.5 38.5 84 29 Z" fill="url(#ag-rim)"/>
+  <path d="M97 51 C97.6 54.4 98.4 55.2 101.8 55.8 C98.4 56.4 97.6 57.2 97 60.6 C96.4 57.2 95.6 56.4 92.2 55.8 C95.6 55.2 96.4 54.4 97 51 Z" fill="#A855F7"/>
+  <path d="M32 68 Q46 54 55 58" stroke="url(#ag-rim)" stroke-width="4" stroke-linecap="round" fill="none"/>
+  <path d="M50 47 L74 65 L62 68 L67 81 L59 84 L54 71 L44 77 Z" fill="#0E121A" stroke="#E0F2FE" stroke-width="2.5" stroke-linejoin="round"/>
+</svg>

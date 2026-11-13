@@ -1,0 +1,27 @@
+{
+  "brand_name": "VICE VAULT",
+  "primary_handle": "@ViceVaultClips",
+  "backup_names": [
+    {
+      "name": "VICE PULSE",
+      "handle": "@VicePulseClips"
+    },
+    {
+      "name": "LEONIDA CLIPS",
+      "handle": "@LeonidaClips"
+    },
+    {
+      "name": "GTA 6 VAULT",
+      "handle": "@GTA6VaultDaily"
+    },
+    {
+      "name": "VICE FEED",
+      "handle": "@ViceFeedTV"
+    }
+  ],
+  "channel_bio": "Daily #1 GTA 6 & viral streamer reactions — fast-paced countdowns, live fails, and wildest moments. New Shorts, TikToks & Reels every day!",
+  "profile_png": "branding/channel_profile_800x800.png",
+  "profile_bytes": 567404,
+  "banner_png": "branding/channel_banner_2560x1440.png",
+  "banner_bytes": 3963201
+}

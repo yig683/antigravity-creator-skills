@@ -1,0 +1,32 @@
+# Python & caches
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.venv/
+.venv*/
+makine_studio/.venv_tts/
+
+# Media outputs, downloaded raw clips & runtime logs
+downloads/
+output/
+makine_studio/output/
+*.mp4
+*.mkv
+*.webm
+*.tmp
+@AutomationLog.txt
+
+# Local state & sensitive credentials
+data/history.json
+data/*.json
+.env
+*.env
+*client_secret*.json
+*youtube_token*.json
+*secret*.json
+
+# Unrelated scratch / OS files
+pelican-bicycle/
+Thumbs.db
+.DS_Store
