@@ -1,0 +1,45 @@
+SC Studio 2.0
+========================================
+
+Kurulum
+-------
+1. ZIP'i bir klasöre çıkarın (sağ tık -> Tümünü ayıkla).
+2. 'SoundCloudStudio.exe' dosyasına çift tıklayın.
+3. Python, .NET, Java veya Visual C++ kurulumu GEREKMEZ.
+   Tek şart: 'ffmpeg.exe' bu klasörde bulunmalı (yanında geliyor).
+4. Windows "Bilinmeyen yayıncı" uyarısı gösterirse:
+   "Daha fazla bilgi" -> "Yine de çalıştır".
+   (Program imzasız; kod imzası satın alınmadığı için normaldir.)
+
+Gereksinimler
+-------------
+- Windows 10 veya 11 (64 bit)
+- Microsoft Edge WebView2 (Windows 10/11'de kurulu gelir; yoksa uygulama
+  açılışta uyarı verir ve indirme bağlantısını gösterir)
+- İnternet bağlantısı
+
+Kullanım
+--------
+1. Sol panelden tarama havuzunu, tarih aralığını ve minimum dinlenmeyi seçin.
+2. "Yeni Parçalar Keşfet & Puanla" butonuna basın.
+3. Sağda çıkan adaylardan istediklerinizi işaretleyip "İndir"e basın.
+4. İndirilen şarkılar; akıllı başlık + 800x800 kapak + ID3 etiketleriyle
+   Müzik / SoundCloud_Dinleme_Arsivi klasörüne 320 kbps MP3 olarak kaydedilir.
+5. Ortadaki listeden çalabilir, "Yenile" ile başlık/kapağı değiştirebilir,
+   çöp kutusu ile silebilirsiniz.
+
+Ayarlar ve veriler
+------------------
+%APPDATA%\SoundCloudStudio\config.json         -> tüm ayarlar
+%APPDATA%\SoundCloudStudio\seen_tracks.json    -> taranan parça geçmişi
+%APPDATA%\SoundCloudStudio\covers\             -> üretilen kapaklar
+%APPDATA%\SoundCloudStudio\artwork_pool\       -> kendi kapaklarınızı atabilirsiniz
+
+Notlar
+------
+- SoundCloud bazı parçaları şifreli (DRM) akışla sunuyor; bunlar indirilemez
+  ve uygulama bunu açıkça bildirir.
+- İnternet bağlantısı gerekir.
+- Arayüz Türkçe'dir.
+
+İyi dinlemeler!

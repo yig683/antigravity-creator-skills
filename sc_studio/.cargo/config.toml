@@ -1,0 +1,4 @@
+# C runtime kutuphanesini exe icine gom: hedef makinede VC++ Redistributable
+# kurulu olmasa da uygulama acilabilsin.
+[build]
+rustflags = ["-C", "target-feature=+crt-static"]

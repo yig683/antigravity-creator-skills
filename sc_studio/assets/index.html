@@ -1,0 +1,1091 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SC Studio</title>
+<link rel="icon" type="image/svg+xml" href="/static/logo.svg">
+<style>
+:root{
+  --accent:#ff5500; --accent-hi:#ff3d00;
+  --bg:#0b0b0c; --panel:#131315; --panel-2:#191a1c; --panel-3:#202124;
+  --line:#232326; --line-2:#2e2f33;
+  --text:#f2f2f3; --dim:#a1a1a6; --muted:#6f7076;
+  --ok:#22c55e; --err:#ef4444;
+  --r-sm:8px; --r:12px; --r-lg:16px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  background:var(--bg);color:var(--text);overflow:hidden;font-size:13px;
+  /* Sistem yazı tipi: çevrimdışı çalışır, dışarıya istek atmaz. */
+  font-family:"Segoe UI Variable Text","Segoe UI Variable","Segoe UI",-apple-system,BlinkMacSystemFont,Roboto,sans-serif;
+  -webkit-font-smoothing:antialiased;user-select:none;
+}
+button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
+input,select,textarea{font-family:inherit;font-size:12.5px}
+.hidden{display:none !important}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-thumb{background:#2b2c30;border-radius:8px;border:2px solid var(--bg)}
+::-webkit-scrollbar-thumb:hover{background:#3a3b40}
+::-webkit-scrollbar-track{background:transparent}
+
+/* ======================================================= SPLASH / MOTION */
+#intro{position:fixed;inset:0;z-index:100;background:#08080a;display:grid;place-items:center;overflow:hidden}
+#intro .stage{position:relative;display:flex;flex-direction:column;align-items:center;gap:22px}
+.mark{position:relative;width:96px;height:96px;display:block}
+.mark svg{width:100%;height:100%;display:block;overflow:visible}
+#baseEl{transform-box:fill-box;transform-origin:center}
+#intro #baseEl{opacity:0}
+#intro #waveEl{visibility:hidden}
+.logo-sm{display:block;width:62px;height:62px;margin:0 auto 18px;border-radius:15px;
+  box-shadow:0 8px 22px rgba(0,0,0,.4)}
+#intro .word{display:flex;align-items:baseline;gap:8px;opacity:0}
+#intro .word .w1{font-size:19px;font-weight:700;letter-spacing:-.3px;color:#f2f2f3}
+#intro .word .w2{font-size:10px;font-weight:600;letter-spacing:2.6px;color:#8b8c92}
+
+/* ======================================================= GİRİŞ EKRANI */
+#login{position:fixed;inset:0;z-index:90;display:grid;place-items:center;
+  background:var(--bg)}
+#login .card{width:436px;padding:38px 34px 30px;background:var(--panel);border:1px solid var(--line);
+  border-radius:20px;box-shadow:0 30px 90px rgba(0,0,0,.55);text-align:center;
+  animation:cardIn .5s cubic-bezier(.16,1,.3,1) both}
+@keyframes cardIn{from{opacity:0;transform:translateY(14px) scale(.985)}to{opacity:1;transform:none}}
+#login .mark{width:62px;height:62px;margin:0 auto 18px}
+#login h1{font-size:19px;font-weight:800;letter-spacing:-.4px}
+#login .sub{margin-top:7px;font-size:12.5px;color:var(--dim);line-height:1.6}
+#login .actions{margin-top:26px;display:flex;flex-direction:column;gap:9px}
+#login .note{margin-top:18px;font-size:11px;color:var(--muted);line-height:1.6}
+#login .adv{margin-top:16px;text-align:left}
+#login .adv summary{font-size:11px;color:var(--muted);cursor:pointer;list-style:none;
+  display:flex;align-items:center;gap:6px}
+#login .adv summary::-webkit-details-marker{display:none}
+#login .adv summary:before{content:"›";transition:.15s;display:inline-block}
+#login .adv[open] summary:before{transform:rotate(90deg)}
+#login .adv .box{margin-top:10px;padding:12px;background:#0f0f11;border:1px solid var(--line);
+  border-radius:10px;display:flex;flex-direction:column;gap:8px}
+#login .adv label{font-size:10px;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);font-weight:700}
+#login .adv input{width:100%}
+#login .adv .help{font-size:10.5px;color:var(--muted);line-height:1.55}
+#login .adv .help a{color:#ff8a4d}
+
+/* ======================================================= ORTAK */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;font-size:12px;
+  font-weight:600;padding:9px 13px;border-radius:9px;border:1px solid var(--line-2);
+  background:var(--panel-2);color:#d6d6d9;transition:background .14s,border-color .14s,transform .1s}
+.btn:hover{background:var(--panel-3);color:#fff;border-color:#3a3b40}
+.btn:active{transform:scale(.985)}
+.btn:disabled{opacity:.45;cursor:not-allowed;transform:none}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff;
+  box-shadow:0 4px 16px rgba(255,85,0,.28)}
+.btn.primary:hover{background:var(--accent-hi);border-color:var(--accent-hi)}
+.btn.ghost{background:transparent}
+.btn.wide{width:100%}
+.btn.lg{padding:11px 16px;font-size:12.5px}
+.btn.tiny{padding:5px 9px;font-size:11px;border-radius:7px}
+.icon{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.9;
+  stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}
+
+/* ======================================================= UYGULAMA */
+#app{height:100%;display:flex;flex-direction:column}
+.topbar{height:58px;flex-shrink:0;display:flex;align-items:center;gap:12px;padding:0 16px;
+  border-bottom:1px solid var(--line);background:linear-gradient(#151517,#111113)}
+.brand{display:flex;align-items:center;gap:10px;flex-shrink:0}
+.brand img{width:29px;height:29px;border-radius:8px}
+.brand b{font-size:14px;font-weight:800;letter-spacing:-.35px}
+.brand b i{font-style:normal;color:var(--accent);font-weight:600;font-size:10.5px;
+  margin-left:4px;letter-spacing:1.4px}
+.status{flex:1;min-width:0;display:flex;align-items:center;gap:8px;font-size:11.5px;
+  color:#ffb694;background:rgba(255,85,0,.07);border:1px solid rgba(255,85,0,.18);
+  border-radius:9px;padding:7px 12px;overflow:hidden}
+.status .txt{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dot{width:6px;height:6px;border-radius:50%;background:var(--accent);flex-shrink:0}
+.dot.live{animation:pulse 1.15s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.progress{height:2px;background:var(--accent);width:0;transition:width .25s ease;flex-shrink:0}
+
+.account{display:flex;align-items:center;gap:8px;padding:5px 9px 5px 6px;border-radius:9px;
+  border:1px solid var(--line);background:var(--panel-2);transition:.14s;flex-shrink:0}
+.account:hover{background:var(--panel-3);border-color:var(--line-2)}
+.account img{width:23px;height:23px;border-radius:6px;object-fit:cover;background:#222}
+.account .nm{font-size:11.5px;font-weight:600;max-width:104px;overflow:hidden;
+  text-overflow:ellipsis;white-space:nowrap}
+.account .off{width:23px;height:23px;border-radius:6px;background:#26272b;display:grid;
+  place-items:center;color:var(--muted)}
+
+main{flex:1;min-height:0;display:grid;gap:12px;padding:12px;
+  grid-template-columns:330px minmax(0,1fr) minmax(0,1.06fr)}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);
+  display:flex;flex-direction:column;min-height:0;overflow:hidden}
+.card-head{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;
+  padding:11px 13px;border-bottom:1px solid var(--line);flex-shrink:0}
+.card-title{font-size:11px;font-weight:700;letter-spacing:.7px;text-transform:uppercase;color:#c9c9cd;
+  display:flex;align-items:center;gap:7px;white-space:nowrap;flex-shrink:0}
+.card-head .btn{white-space:nowrap}
+.badge{background:rgba(255,85,0,.14);color:#ff8a4d;border-radius:20px;padding:1px 7px;
+  font-size:10px;font-weight:700;letter-spacing:0}
+.card-body{padding:13px;overflow-y:auto;flex:1;min-height:0}
+
+label.f{display:block;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;
+  letter-spacing:.7px;margin-bottom:6px}
+select,input[type=text],input[type=password],textarea{width:100%;background:#0e0e10;
+  border:1px solid var(--line-2);color:#e9e9ec;border-radius:8px;padding:8px 10px;outline:none;
+  transition:border-color .14s,background .14s}
+select:focus,input:focus,textarea:focus{border-color:var(--accent);background:#111113}
+textarea{resize:vertical;min-height:72px;line-height:1.55;font-size:11.5px}
+.row{display:flex;gap:6px}
+.field{margin-bottom:11px}
+.hr{border:none;border-top:1px solid var(--line);margin:13px 0}
+
+.list{display:flex;flex-direction:column;gap:6px}
+.row-track{display:flex;align-items:center;gap:10px;padding:8px 9px;border-radius:10px;
+  background:var(--panel-2);border:1px solid transparent;transition:.14s}
+.row-track:hover{background:var(--panel-3);border-color:var(--line-2)}
+.thumb{width:40px;height:40px;border-radius:8px;object-fit:cover;background:#0e0e10;flex-shrink:0}
+.info{flex:1;min-width:0}
+.t-title{font-size:12.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  line-height:1.35;color:#f0f0f2}
+.t-sub{font-size:10.5px;color:var(--muted);display:flex;align-items:center;gap:5px;margin-top:3px;
+  white-space:nowrap;overflow:hidden}
+.t-sub .u{color:#cfcfd4;font-weight:600;max-width:108px;overflow:hidden;text-overflow:ellipsis}
+.t-sub .sep{opacity:.35}
+.play{width:27px;height:27px;border-radius:50%;background:rgba(255,85,0,.13);color:var(--accent);
+  display:grid;place-items:center;flex-shrink:0;transition:.14s}
+.play:hover{background:var(--accent);color:#fff}
+.score{font-size:10.5px;font-weight:800;padding:2px 7px;border-radius:6px;
+  background:rgba(34,197,94,.13);color:#4ade80}
+.score.mid{background:rgba(255,153,0,.13);color:#ffa733}
+.score.low{background:rgba(255,85,85,.12);color:#ff7b7b}
+.trash{color:#5f6066;padding:5px;border-radius:7px;display:grid;place-items:center;transition:.14s}
+.trash:hover{color:var(--err);background:rgba(239,68,68,.1)}
+.empty{padding:32px 16px;text-align:center;color:#5c5d63;font-size:11.5px;line-height:1.85}
+.empty b{color:#9a9ba1}
+.spinner{width:22px;height:22px;border:2px solid rgba(255,85,0,.18);border-top-color:var(--accent);
+  border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 12px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.chk{width:15px;height:15px;accent-color:var(--accent);cursor:pointer;flex-shrink:0}
+
+.player{height:68px;flex-shrink:0;border-top:1px solid var(--line);background:#101012;
+  display:flex;align-items:center;gap:16px;padding:0 16px}
+.p-left{display:flex;align-items:center;gap:10px;width:280px;min-width:0}
+.p-left img{width:42px;height:42px;border-radius:9px;object-fit:cover;background:#0e0e10}
+.p-title{font-size:12.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.p-sub{font-size:10.5px;color:var(--muted);white-space:nowrap;overflow:hidden;
+  text-overflow:ellipsis;margin-top:2px}
+audio{flex:1;height:34px;min-width:0;filter:invert(.93) hue-rotate(180deg)}
+.p-tag{font-size:10px;color:#5a5b60;font-weight:700;letter-spacing:.6px;white-space:nowrap}
+
+#toasts{position:fixed;right:14px;bottom:84px;display:flex;flex-direction:column;gap:8px;
+  z-index:200;max-width:380px}
+.toast{background:#1c1d20;border:1px solid #333438;border-left:3px solid var(--accent);
+  border-radius:9px;padding:10px 13px;font-size:11.5px;line-height:1.5;color:#e6e6e9;
+  box-shadow:0 14px 36px rgba(0,0,0,.55);animation:toastIn .22s cubic-bezier(.16,1,.3,1)}
+.toast.err{border-left-color:var(--err)}
+.toast.ok{border-left-color:var(--ok)}
+@keyframes toastIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+</style>
+</head>
+<body>
+
+<!-- ===================== AÇILIŞ ANİMASYONU ===================== -->
+<div id="intro">
+  <div class="stage">
+    <div class="mark" id="markEl">
+      <!-- assets/logo.svg ile aynı geometri; animasyon için satır içi. -->
+      <svg viewBox="0 0 100 100" aria-hidden="true">
+        <defs>
+          <linearGradient id="scT" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#1e1e22"/><stop offset="1" stop-color="#121214"/>
+          </linearGradient>
+          <linearGradient id="scW" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0" stop-color="#ff8a2a"/><stop offset="1" stop-color="#ff4d00"/>
+          </linearGradient>
+        </defs>
+        <g id="baseEl">
+          <rect width="100" height="100" rx="24" fill="url(#scT)"/>
+          <rect x=".5" y=".5" width="99" height="99" rx="23.5" fill="none" stroke="#fff" stroke-opacity=".08"/>
+        </g>
+        <path id="waveEl" d="M20 50C25 20.7 35 20.7 40 50C45.5 70 56.5 70 62 50C66.5 39.3 75.5 39.3 80 50"
+              fill="none" stroke="url(#scW)" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </div>
+    <div class="word" id="word">
+      <span class="w1">SC</span><span class="w2">STUDIO</span>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== GİRİŞ EKRANI ===================== -->
+<div id="login" class="hidden">
+  <div class="card">
+    <img class="logo-sm" src="/static/logo.svg" alt="">
+    <h1>SC Studio</h1>
+    <p class="sub">Viral edit parçalarını bul, puanla ve kendi arşivini kur.</p>
+
+    <div class="actions">
+      <button class="btn primary lg wide" id="signInBtn">
+        <svg class="icon" viewBox="0 0 24 24"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg>
+        SoundCloud ile giriş yap
+      </button>
+      <button class="btn wide" id="guestBtn">Misafir olarak devam et</button>
+    </div>
+
+    <p class="note" id="loginNote">
+      Giriş yapmadan da her şey çalışır. Giriş, beğendiğin parçaları doğrudan
+      kaynak olarak kullanmanı sağlar.
+    </p>
+    <p class="note" style="margin-top:8px;font-size:10px;color:#4f5056">
+      SC Studio bağımsız bir uygulamadır; SoundCloud ile bağlantılı değildir
+      ve SoundCloud tarafından onaylanmamıştır.
+    </p>
+
+    <details class="adv" id="advBox">
+      <summary>Gelişmiş: SoundCloud uygulama bilgileri</summary>
+      <div class="box">
+        <p class="help">
+          <a href="https://soundcloud.com/you/apps" target="_blank">soundcloud.com/you/apps</a>
+          adresinden uygulama oluşturup bilgileri girin. Yönlendirme adresi
+          kayıtlı olanla birebir aynı olmalı.
+        </p>
+        <div>
+          <label>Client ID</label>
+          <input type="text" id="advId" spellcheck="false" placeholder="örn. a1b2c3...">
+        </div>
+        <div>
+          <label>Client Secret</label>
+          <input type="password" id="advSecret" spellcheck="false" placeholder="••••••••">
+        </div>
+        <div>
+          <label>Yönlendirme adresi</label>
+          <input type="text" id="advRedirect" spellcheck="false">
+        </div>
+        <button class="btn tiny" id="advSave">Kaydet</button>
+      </div>
+    </details>
+  </div>
+</div>
+
+<!-- ===================== UYGULAMA ===================== -->
+<div id="app" class="hidden">
+  <header class="topbar">
+    <div class="brand">
+      <img src="/static/logo.svg" alt="">
+      <b>SC<i>STUDIO</i></b>
+    </div>
+
+    <div class="status"><div class="dot" id="dot"></div><span class="txt" id="statusText">Hazır.</span></div>
+
+    <button class="btn" id="browseBtn" title="SoundCloud'u uygulama içinde aç">
+      <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 2.5 15.4 0 18-2.5-2.6-2.5-15.4 0-18z"/></svg>
+      Keşfet
+    </button>
+    <button class="btn ghost" id="grabBtn" title="Tarayıcıda açık olan sayfayı taramaya aktar">
+      <svg class="icon" viewBox="0 0 24 24"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>
+      Sayfayı aktar
+    </button>
+    <button class="btn ghost" id="openFolderBtn" title="Arşiv klasörünü aç">
+      <svg class="icon" viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+      Klasör
+    </button>
+
+    <button class="account" id="accountBtn">
+      <span id="accountAvatar" class="off">
+        <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>
+      </span>
+      <span class="nm" id="accountName">Giriş yap</span>
+    </button>
+  </header>
+  <div class="progress" id="progressBar"></div>
+
+  <main>
+    <!-- AYARLAR -->
+    <section class="card">
+      <div class="card-head"><span class="card-title">Ayarlar &amp; Filtreler</span></div>
+      <div class="card-body">
+        <div class="field">
+          <label class="f">Şarkı Klasörü</label>
+          <div class="row" style="margin-bottom:6px">
+            <button class="btn tiny" style="flex:1" data-folder="music">Müzik</button>
+            <button class="btn tiny" style="flex:1" data-folder="downloads">İndirilenler</button>
+            <button class="btn tiny" style="flex:1" data-folder="studio">Stüdyo</button>
+          </div>
+          <div class="row">
+            <input type="text" id="customFolder" placeholder="Özel klasör yolu...">
+            <button class="btn tiny" id="applyFolder">Seç</button>
+          </div>
+          <div style="font-size:10px;color:#5c5d63;margin-top:5px;word-break:break-all" id="folderPath">—</div>
+        </div>
+
+        <div class="field">
+          <label class="f">İsimlendirme Stili</label>
+          <select id="namingStyle">
+            <option value="smart_random">Akıllı Rastgele Edit / Remix (Önerilen)</option>
+            <option value="slowed">(Slowed + Reverb)</option>
+            <option value="hardtekk">(HARDTEKK / BASS BOOSTED)</option>
+            <option value="super_slowed">(Super Slowed)</option>
+            <option value="phonk">(TikTok Viral Edit)</option>
+            <option value="pitched">[PITCHED &amp; SLOWED]</option>
+          </select>
+        </div>
+
+        <button class="btn wide" id="regenAll" style="margin-bottom:13px">
+          <svg class="icon" viewBox="0 0 24 24"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
+          Başlıkları &amp; Kapakları Yenile
+        </button>
+
+        <hr class="hr">
+
+        <div class="field">
+          <label class="f">AI Tarama Havuzu</label>
+          <select id="source">
+            <option value="my_likes" id="likesOption">Beğenilerim (hesap veya profil linki)</option>
+            <option value="curated_creators">Referans Edit Kanalları (Özel)</option>
+            <option value="hardtekk">Hardtekk (Bass Boosted / Ultra Slowed)</option>
+            <option value="phonk">Brazilian &amp; Drift Phonk (TikTok)</option>
+            <option value="slowed_reverb">Slowed + Reverb (TikTok Edits)</option>
+            <option value="all_viral">Tüm Viral Editler Karışık</option>
+            <option value="custom_url">Özel Link Veya Arama</option>
+          </select>
+        </div>
+
+        <div class="field" id="customBox" style="display:none">
+          <label class="f" id="customLabel">Link veya Terim</label>
+          <input type="text" id="customInput" placeholder="https://soundcloud.com/... veya 'hardtekk slowed'">
+        </div>
+
+        <div class="field">
+          <label class="f">Çıkış Tarihi</label>
+          <select id="maxDays">
+            <option value="3">Son 3 Gün (En Yeni)</option>
+            <option value="7" selected>Son 1 Hafta</option>
+            <option value="14">Son 2 Hafta</option>
+            <option value="30">Son 1 Ay</option>
+            <option value="0">Filtresiz (Tüm Zamanlar)</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label class="f">Keşfedilecek Şarkı Sayısı</label>
+          <select id="count">
+            <option value="3">3 Şarkı</option>
+            <option value="5" selected>5 Şarkı</option>
+            <option value="8">8 Şarkı</option>
+            <option value="10">10 Şarkı</option>
+            <option value="15">15 Şarkı</option>
+            <option value="20">20 Şarkı</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label class="f">Minimum Dinlenme</label>
+          <select id="minViews">
+            <option value="0">Filtresiz (Tümü)</option>
+            <option value="5000">5K+ Dinlenme</option>
+            <option value="10000" selected>10K+ Dinlenme (Önerilen)</option>
+            <option value="25000">25K+ Dinlenme</option>
+            <option value="50000">50K+ Dinlenme</option>
+            <option value="100000">100K+ Dinlenme (Mega Hit)</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label class="f">Minimum Skor</label>
+          <select id="minScore">
+            <option value="45">45+ Skor</option>
+            <option value="65" selected>65+ Skor (Yüksek Kalite)</option>
+            <option value="85">85+ Skor (Zirve Hit)</option>
+          </select>
+        </div>
+
+        <button class="btn primary wide lg" id="scanBtn" style="margin-bottom:8px">
+          <svg class="icon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+          Yeni Parçalar Keşfet &amp; Puanla
+        </button>
+
+        <button class="btn wide tiny" id="resetMemory">Tarama Geçmişini Sıfırla (<span id="seenCount">0</span>)</button>
+
+        <hr class="hr">
+        <details>
+          <summary style="font-size:11px;color:var(--muted);font-weight:700;cursor:pointer;letter-spacing:.4px">
+            REFERANS KANALLAR (<span id="channelCount">0</span>)
+          </summary>
+          <textarea id="channels" spellcheck="false" style="margin-top:8px"></textarea>
+          <button class="btn wide tiny" id="saveChannels" style="margin-top:6px">Kanalları Kaydet</button>
+        </details>
+      </div>
+    </section>
+
+    <!-- KÜTÜPHANE -->
+    <section class="card">
+      <div class="card-head">
+        <span class="card-title">Yüklenmiş Şarkılar <span class="badge" id="trackCount">0</span></span>
+        <div class="row" style="align-items:center;flex:1 1 210px;justify-content:flex-end">
+          <input type="text" id="trackSearch" placeholder="Ara..." spellcheck="false"
+            style="flex:1;min-width:56px;max-width:150px;width:auto;padding:5px 9px;font-size:11px;border-radius:7px">
+          <button class="btn tiny" id="exportCovers" title="Kapakları şarkıların yanına .jpg olarak kopyalar">Kapaklar</button>
+          <button class="btn tiny" id="openCurrent">Klasör</button>
+        </div>
+      </div>
+      <div class="card-body"><div class="list" id="trackList">
+        <div class="empty">Klasörde henüz ses dosyası yok.</div>
+      </div></div>
+    </section>
+
+    <!-- ADAYLAR -->
+    <section class="card">
+      <div class="card-head">
+        <span class="card-title">AI Keşfedilen Parçalar <span class="badge" id="candCount">0</span></span>
+        <div class="row">
+          <button class="btn tiny" id="selectAll">Tümünü Seç</button>
+          <button class="btn primary tiny" id="downloadBtn">İndir</button>
+        </div>
+      </div>
+      <div class="card-body"><div class="list" id="candList">
+        <div class="empty">Soldan <b>Yeni Parçalar Keşfet</b> ile başlayın.<br>Seçtiğiniz parçalar kapaklarıyla birlikte indirilir.</div>
+      </div></div>
+    </section>
+  </main>
+
+  <div class="player">
+    <div class="p-left">
+      <img id="pThumb" src="/static/icon.png" alt="">
+      <div style="min-width:0">
+        <div class="p-title" id="pTitle">Çalınan şarkı yok</div>
+        <div class="p-sub" id="pSub">Listeden bir şarkı başlatın</div>
+      </div>
+    </div>
+    <audio id="audio" controls preload="none"></audio>
+    <div class="p-tag">MP3</div>
+  </div>
+</div>
+
+<div id="toasts"></div>
+
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+const state = {
+  candidates: [], tracks: [], view: [], cfg: null, auth: null,
+  lastCandJson: "", lastTrackJson: "", busy: false, downloading: false, lastError: null
+};
+
+/* ---------------------------------------------------------- yardımcılar */
+const esc = (v) => String(v == null ? "" : v).replace(/[&<>"']/g, (c) => ({
+  "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+}[c]));
+
+function nfmt(n) {
+  if (!n) return "0";
+  if (n >= 1e6) return (n / 1e6).toFixed(1).replace(".0", "") + "M";
+  if (n >= 1e3) return (n / 1e3).toFixed(1).replace(".0", "") + "K";
+  return String(n);
+}
+
+function toast(msg, kind) {
+  const el = document.createElement("div");
+  el.className = "toast " + (kind || "");
+  el.textContent = msg;
+  $("toasts").appendChild(el);
+  setTimeout(() => { el.style.opacity = "0"; el.style.transition = "opacity .3s"; }, 5200);
+  setTimeout(() => el.remove(), 5700);
+}
+
+async function api(path, opts) {
+  const res = await fetch(path, opts);
+  let data = null;
+  try { data = await res.json(); } catch (_) {}
+  if (!res.ok) throw new Error((data && data.error) || ("HTTP " + res.status));
+  return data || {};
+}
+const post = (path, body) => api(path, {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify(body || {})
+});
+
+/* ---------------------------------------------------------- SPLASH MOTION */
+/*
+  Sade açılış (~1,5 sn): tek fikir, üç adım, hiçbiri gösteriş için değil.
+  1) Logo zemini yerine oturur (hafif ölçek + opaklık)
+  2) Dalga soldan sağa tek çizgiyle çizilir
+  3) İsim yumuşakça belirir, kısa bekleme, sessizce çıkış
+  Parlama, sıçrama, harf harf animasyon yok. Tıklama / herhangi bir tuş geçer.
+*/
+const EASE_OUT = "cubic-bezier(.2,.8,.2,1)";
+const EASE_INOUT = "cubic-bezier(.65,0,.35,1)";
+const REDUCED = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+function runIntro() {
+  const intro = $("intro");
+  const base = $("baseEl");
+  const wave = $("waveEl");
+  const len = wave.getTotalLength();
+  const word = $("word");
+  let done = false;
+
+  const finish = () => {
+    if (done) return;
+    done = true;
+    intro.animate([{ opacity: 1 }, { opacity: 0 }],
+      { duration: 280, easing: "ease-out", fill: "forwards" })
+      .finished.then(() => { intro.remove(); startAfterIntro(); });
+  };
+
+  if (REDUCED) {
+    base.style.opacity = "1";
+    wave.style.visibility = "visible";
+    word.style.opacity = "1";
+    setTimeout(finish, 600);
+    return;
+  }
+
+  base.animate(
+    [{ opacity: 0, transform: "scale(.96)" }, { opacity: 1, transform: "scale(1)" }],
+    { duration: 520, easing: EASE_OUT, fill: "forwards" }
+  );
+  wave.style.strokeDasharray = len;
+  wave.style.strokeDashoffset = len;
+  wave.style.visibility = "visible";
+  wave.animate(
+    [{ strokeDashoffset: len }, { strokeDashoffset: 0 }],
+    { duration: 620, delay: 180, easing: EASE_INOUT, fill: "forwards" }
+  );
+  word.animate(
+    [{ opacity: 0, transform: "translateY(6px)" }, { opacity: 1, transform: "none" }],
+    { duration: 440, delay: 480, easing: EASE_OUT, fill: "forwards" }
+  );
+
+  const timer = setTimeout(finish, 1300);
+  const skip = () => { clearTimeout(timer); finish(); };
+  intro.addEventListener("click", skip, { once: true });
+  document.addEventListener("keydown", skip, { once: true });
+}
+
+/* ---------------------------------------------------------- İLK KURULUM */
+function showLogin() {
+  $("login").classList.remove("hidden");
+  $("app").classList.add("hidden");
+}
+
+function hideLogin() {
+  $("login").classList.add("hidden");
+  $("app").classList.remove("hidden");
+}
+
+function startAfterIntro() {
+  if (state.auth && state.auth.onboarded) {
+    hideLogin();
+    boot();
+  } else {
+    showLogin();
+  }
+}
+
+async function refreshAuth() {
+  try {
+    state.auth = await api("/api/auth/status");
+  } catch (_) {
+    state.auth = { onboarded: true, signed_in: false };
+  }
+  renderAccount();
+  return state.auth;
+}
+
+function renderAccount() {
+  const a = state.auth || {};
+  const name = $("accountName");
+  const av = $("accountAvatar");
+  if (a.signed_in) {
+    name.textContent = a.username || "Hesap";
+    if (a.avatar_url) {
+      av.className = "";
+      av.innerHTML = `<img src="${esc(a.avatar_url)}" alt="">`;
+    }
+  } else {
+    name.textContent = "Giriş yap";
+    av.className = "off";
+    av.innerHTML = `<svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>`;
+  }
+  toggleCustomBox();
+}
+
+let loginWatcher = null;
+
+async function signIn() {
+  const a = state.auth || {};
+  try {
+    if (a.configured) {
+      // Resmi OAuth: varsayılan tarayıcıda açılır. Orada SoundCloud oturumu
+      // zaten açıksa yalnızca "Bağlan" onayı istenir; şifre sorulmaz.
+      await post("/api/auth/start");
+      toast("Varsayılan tarayıcında SoundCloud açıldı. Onaylayınca uygulama kendiliğinden öne gelir.");
+    } else {
+      // Yoksa giriş, uygulama içi pencerede doğrudan soundcloud.com'da yapılır.
+      await post("/api/auth/web-login");
+      toast("SoundCloud açıldı. Giriş yapınca pencere kendiliğinden kapanır.");
+    }
+    watchLogin();
+  } catch (e) {
+    toast(e.message, "err");
+  }
+}
+
+function watchLogin() {
+  clearInterval(loginWatcher);
+  let ticks = 0;
+  loginWatcher = setInterval(async () => {
+    ticks++;
+    await refreshAuth();
+    if (state.auth.signed_in) {
+      clearInterval(loginWatcher);
+      toast("Hoş geldin " + state.auth.username + "!", "ok");
+      await completeOnboarding();
+    } else if (ticks > 300) { // 10 dakika
+      clearInterval(loginWatcher);
+    }
+  }, 2000);
+}
+
+async function completeOnboarding() {
+  try { await post("/api/onboarding/complete"); } catch (_) {}
+  state.auth.onboarded = true;
+  hideLogin();
+  boot();
+}
+
+/* ---------------------------------------------------------- AYARLAR */
+function applyConfig(cfg) {
+  state.cfg = cfg;
+  $("namingStyle").value = cfg.naming_style;
+  $("source").value = cfg.source_type;
+  $("maxDays").value = String(cfg.max_days);
+  $("count").value = String(cfg.track_count);
+  $("minViews").value = String(cfg.min_views);
+  $("minScore").value = String(cfg.min_score);
+  $("customInput").value = cfg.custom_input || "";
+  $("channels").value = (cfg.channels || []).join("\n");
+  $("channelCount").textContent = (cfg.channels || []).length;
+  toggleCustomBox();
+}
+
+/* Beğeniler giriş yapmadan da taranabilir: profil linki yeterli. */
+const needsProfileLink = () =>
+  $("source").value === "my_likes" && !(state.auth && state.auth.signed_in);
+
+function toggleCustomBox() {
+  const src = $("source").value;
+  const likes = needsProfileLink();
+  $("customBox").style.display = (src === "custom_url" || likes) ? "block" : "none";
+  $("customLabel").textContent = likes ? "SoundCloud Profil Linkin" : "Link veya Terim";
+  $("customInput").placeholder = likes
+    ? "https://soundcloud.com/kullanici-adi"
+    : "https://soundcloud.com/... veya 'hardtekk slowed'";
+}
+
+async function loadSettings() {
+  const data = await api("/api/settings");
+  applyConfig(data.config);
+  $("folderPath").textContent = data.target_dir;
+  $("customFolder").placeholder = data.target_dir;
+  if (data.config.sc_client_id) $("advId").value = data.config.sc_client_id;
+  if (data.config.sc_redirect_uri) $("advRedirect").value = data.config.sc_redirect_uri;
+  return data;
+}
+
+async function patchSettings(patch) {
+  const data = await post("/api/settings", patch);
+  applyConfig(data.config);
+  return data;
+}
+
+/* ---------------------------------------------------------- TARAMA */
+async function startScan() {
+  if (state.busy) return;
+  const payload = {
+    source: $("source").value,
+    custom_input: $("customInput").value.trim(),
+    min_score: parseInt($("minScore").value, 10),
+    count: parseInt($("count").value, 10),
+    max_days: parseFloat($("maxDays").value),
+    min_views: parseInt($("minViews").value, 10),
+    naming_style: $("namingStyle").value
+  };
+  if (payload.source === "custom_url" && !payload.custom_input) {
+    toast("Özel link veya arama terimi girin.", "err");
+    return;
+  }
+  if (needsProfileLink() && payload.custom_input.indexOf("soundcloud.com/") === -1) {
+    toast("Beğenileri taramak için SoundCloud profil linkini girin ya da giriş yapın.", "err");
+    return;
+  }
+  $("candList").innerHTML =
+    '<div class="empty"><div class="spinner"></div>' +
+    '<div style="color:#e8e8ea;font-weight:600;margin-bottom:4px">Parçalar taranıyor...</div>' +
+    '<div>' + payload.count + ' adet parça aranıyor</div></div>';
+  try {
+    await post("/api/curator/scan", payload);
+    await refreshStatus(true);
+  } catch (e) { toast(e.message, "err"); }
+}
+
+/* ---------------------------------------------------------- ADAYLAR */
+const scoreClass = (s) => (s >= 80 ? "" : s >= 60 ? "mid" : "low");
+
+function renderCandidates() {
+  const list = state.candidates;
+  $("candCount").textContent = list.length;
+  if (!list.length) {
+    $("candList").innerHTML = '<div class="empty">Soldan <b>Yeni Parçalar Keşfet</b> ile başlayın.<br>Seçtiğiniz parçalar kapaklarıyla birlikte indirilir.</div>';
+    return;
+  }
+  $("candList").innerHTML = list.map((c, i) =>
+    '<div class="row-track">' +
+      '<input type="checkbox" class="chk cand" data-i="' + i + '" checked>' +
+      '<img class="thumb" src="' + esc(c.thumbnail) + '" onerror="this.src=\'/static/icon.png\'" alt="">' +
+      '<div class="info">' +
+        '<div class="t-title" title="' + esc(c.title) + '">' + esc(c.title) + '</div>' +
+        '<div class="t-sub">' +
+          '<span class="u">' + esc(c.uploader) + '</span>' +
+          '<span class="sep">•</span><span>' + esc(c.date_str) + '</span>' +
+          '<span class="sep">•</span><span style="color:#ff9955">▶ ' + nfmt(c.views) + '</span>' +
+          '<span class="sep">•</span><span style="color:#ff6b7a">♥ ' + nfmt(c.likes) + '</span>' +
+          '<span class="sep">•</span><span>' + esc(c.duration_str) + '</span>' +
+        '</div>' +
+      '</div>' +
+      '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:5px">' +
+        '<span class="score ' + scoreClass(c.score) + '" title="' + esc((c.reasons || []).join(' | ')) + '">' + c.score + '</span>' +
+        '<button class="btn tiny" data-dl="' + i + '">İndir</button>' +
+      '</div>' +
+    '</div>').join("");
+
+  $("candList").querySelectorAll("[data-dl]").forEach((btn) => {
+    btn.disabled = state.downloading;
+    btn.addEventListener("click", () => {
+      const c = state.candidates[parseInt(btn.dataset.dl, 10)];
+      downloadItems([{ url: c.url, title: c.title, thumbnail: c.thumbnail }]);
+    });
+  });
+}
+
+function selectedCandidates() {
+  return Array.from($("candList").querySelectorAll(".chk.cand:checked")).map((chk) => {
+    const c = state.candidates[parseInt(chk.dataset.i, 10)];
+    return { url: c.url, title: c.title, thumbnail: c.thumbnail };
+  });
+}
+
+async function downloadItems(items) {
+  if (!items.length) { toast("En az bir parça seçin.", "err"); return; }
+  try {
+    await post("/api/curator/download-selected", { items });
+    toast(items.length + " parça indirme kuyruğuna alındı.", "ok");
+    await refreshStatus(true);
+  } catch (e) { toast(e.message, "err"); }
+}
+
+/* ---------------------------------------------------------- KÜTÜPHANE */
+function playTrack(name, cover, title) {
+  $("audio").src = "/downloads/" + encodeURIComponent(name);
+  $("audio").play().catch(() => {});
+  $("pTitle").textContent = title || name;
+  $("pSub").textContent = "Yüklenmiş Şarkılar";
+  $("pThumb").src = cover || "/static/icon.png";
+}
+
+function renderTracks() {
+  const q = $("trackSearch").value.trim().toLocaleLowerCase("tr");
+  const list = q
+    ? state.tracks.filter((t) =>
+        (t.smart_title + " " + t.name).toLocaleLowerCase("tr").includes(q))
+    : state.tracks;
+  state.view = list;
+  $("trackCount").textContent = q ? list.length + "/" + state.tracks.length : list.length;
+  if (!state.tracks.length) {
+    $("trackList").innerHTML = '<div class="empty">Klasörde henüz ses dosyası yok.<br>Sağdaki listeden indirebilirsiniz.</div>';
+    return;
+  }
+  if (!list.length) {
+    $("trackList").innerHTML = '<div class="empty">"' + esc(q) + '" ile eşleşen şarkı yok.</div>';
+    return;
+  }
+  $("trackList").innerHTML = list.map((t, i) =>
+    '<div class="row-track">' +
+      '<button class="play" data-play="' + i + '" title="Çal">' +
+        '<svg style="width:10px;height:10px;fill:currentColor" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21"/></svg>' +
+      '</button>' +
+      '<img class="thumb" src="' + esc(t.cover_url) + '" onerror="this.src=\'/static/icon.png\'" alt="">' +
+      '<div class="info">' +
+        '<div class="t-title" title="' + esc(t.smart_title) + '">' + esc(t.smart_title) + '</div>' +
+        '<div class="t-sub"><span style="max-width:190px;overflow:hidden;text-overflow:ellipsis">' + esc(t.name) + '</span>' +
+          '<span class="sep">•</span><span>' + esc(t.size) + '</span></div>' +
+      '</div>' +
+      (t.editable
+        ? '<button class="btn tiny" data-regen="' + i + '" title="Başlık ve kapağı yenile">Yenile</button>'
+        : '') +
+      '<button class="trash" data-del="' + i + '" title="Sil">' +
+        '<svg class="icon" style="width:14px;height:14px" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>' +
+      '</button>' +
+    '</div>').join("");
+
+  $("trackList").querySelectorAll("[data-play]").forEach((b) => {
+    b.addEventListener("click", () => {
+      const t = state.view[parseInt(b.dataset.play, 10)];
+      playTrack(t.name, t.cover_url, t.smart_title);
+    });
+  });
+  $("trackList").querySelectorAll("[data-regen]").forEach((b) => {
+    b.addEventListener("click", () => regenerate(state.view[parseInt(b.dataset.regen, 10)].name));
+  });
+  $("trackList").querySelectorAll("[data-del]").forEach((b) => {
+    b.addEventListener("click", () => {
+      const t = state.view[parseInt(b.dataset.del, 10)];
+      if (confirm("'" + t.name + "' dosyasını ve kapağını silmek istiyor musunuz?")) removeTrack(t.name);
+    });
+  });
+}
+
+async function removeTrack(name) {
+  try {
+    await post("/api/archive/delete", { filename: name });
+    toast("Silindi.", "ok");
+    await refreshTracks(true);
+  } catch (e) { toast(e.message, "err"); }
+}
+
+async function regenerate(filename) {
+  let custom = "";
+  if (filename) {
+    const answer = prompt("Yeni başlık (otomatik üretim için boş bırakın):");
+    if (answer === null) return; // İptal edildi.
+    custom = answer;
+  } else {
+    const n = state.tracks.filter((t) => t.editable).length;
+    if (!n) { toast("Yenilenecek MP3 yok.", "err"); return; }
+    if (!confirm("Uygulamanın indirdiği MP3'lerin (en fazla " + n + " dosya) adı, başlığı ve kapağı " +
+                 "yeniden üretilecek. Ses verisine dokunulmaz. Devam edilsin mi?")) return;
+  }
+  try {
+    const data = await post("/api/my-tracks/regenerate", {
+      filename: filename || "",
+      custom_title: custom,
+      style: $("namingStyle").value,
+      prefix: ""
+    });
+    if (data.errors && data.errors.length) toast(data.errors[0], "err");
+    else toast(data.updated + " şarkı yenilendi.", "ok");
+    await refreshTracks(true);
+  } catch (e) { toast(e.message, "err"); }
+}
+
+/* ---------------------------------------------------------- DURUM */
+async function refreshStatus(force) {
+  try {
+    const data = await api("/api/trends/status");
+    const st = data.state;
+    state.busy = st.scanning || st.downloading;
+
+    $("statusText").textContent = st.log || "Hazır.";
+    $("dot").classList.toggle("live", state.busy);
+    $("scanBtn").disabled = state.busy;
+    $("downloadBtn").disabled = st.downloading;
+    $("downloadBtn").textContent = st.downloading && st.batch_total
+      ? "İndiriliyor " + st.batch_index + "/" + st.batch_total
+      : "İndir";
+    if (state.downloading !== st.downloading) {
+      state.downloading = st.downloading;
+      $("candList").querySelectorAll("[data-dl]").forEach((b) => { b.disabled = st.downloading; });
+    }
+    $("seenCount").textContent = st.seen_count || 0;
+
+    const pct = st.downloading ? Math.max(3, Math.round((st.progress || 0) * 100)) : 0;
+    $("progressBar").style.width = pct + "%";
+
+    if (st.error && st.error !== state.lastError) {
+      state.lastError = st.error;
+      toast(st.error, "err");
+    }
+    if (!st.error) state.lastError = null;
+
+    const json = JSON.stringify(st.candidates || []);
+    if (force || json !== state.lastCandJson) {
+      state.lastCandJson = json;
+      state.candidates = st.candidates || [];
+      renderCandidates();
+    }
+  } catch (_) {}
+}
+
+async function refreshTracks(force) {
+  try {
+    const data = await api("/api/my-tracks");
+    $("folderPath").textContent = data.source_dir;
+    const json = JSON.stringify(data.tracks);
+    if (force || json !== state.lastTrackJson) {
+      state.lastTrackJson = json;
+      state.tracks = data.tracks;
+      renderTracks();
+    }
+  } catch (_) {}
+}
+
+/* ---------------------------------------------------------- OLAYLAR */
+$("signInBtn").addEventListener("click", signIn);
+$("guestBtn").addEventListener("click", completeOnboarding);
+
+$("advSave").addEventListener("click", async () => {
+  const id = $("advId").value.trim();
+  const secret = $("advSecret").value.trim();
+  const redirect = $("advRedirect").value.trim();
+  if (!id || !redirect) { toast("Client ID ve yönlendirme adresi gerekli.", "err"); return; }
+  try {
+    const patch = { sc_client_id: id, sc_redirect_uri: redirect };
+    if (secret) patch.sc_client_secret = secret;
+    await post("/api/settings", patch);
+    await refreshAuth();
+    toast("Kaydedildi. Artık giriş yapabilirsiniz.", "ok");
+  } catch (e) { toast(e.message, "err"); }
+});
+
+$("accountBtn").addEventListener("click", async () => {
+  if (state.auth && state.auth.signed_in) {
+    if (confirm(state.auth.username + " hesabından çıkış yapılsın mı?")) {
+      await post("/api/auth/logout");
+      await refreshAuth();
+      toast("Çıkış yapıldı.");
+    }
+  } else {
+    $("app").classList.add("hidden");
+    showLogin();
+  }
+});
+
+$("browseBtn").addEventListener("click", async () => {
+  try {
+    await post("/api/browser/open");
+    toast("SoundCloud penceresi açıldı. Bir parça sayfası açıp 'Sayfayı aktar'a basın.");
+  } catch (e) { toast(e.message, "err"); }
+});
+
+$("grabBtn").addEventListener("click", async () => {
+  try {
+    const res = await api("/api/browser/url");
+    const url = res.url || "";
+    if (!url || url.indexOf("soundcloud.com") === -1) {
+      toast("Önce 'Keşfet' ile SoundCloud'da bir sayfa açın.", "err");
+      return;
+    }
+    const clean = url.split("?")[0];
+    $("source").value = "custom_url";
+    toggleCustomBox();
+    $("customInput").value = clean;
+    toast("Sayfa aktarıldı: " + clean.replace("https://soundcloud.com", ""));
+    await startScan();
+  } catch (e) { toast(e.message, "err"); }
+});
+
+$("scanBtn").addEventListener("click", startScan);
+$("selectAll").addEventListener("click", () => {
+  const boxes = Array.from($("candList").querySelectorAll(".chk.cand"));
+  const target = boxes.some((b) => !b.checked);
+  boxes.forEach((b) => { b.checked = target; });
+});
+$("downloadBtn").addEventListener("click", () => downloadItems(selectedCandidates()));
+$("regenAll").addEventListener("click", () => regenerate(""));
+$("resetMemory").addEventListener("click", async () => {
+  if (!confirm("Tarama geçmişi sıfırlanacak. Daha önce bulunan şarkılar tekrar taranabilir hale gelecek. Onaylıyor musunuz?")) return;
+  try {
+    await post("/api/curator/reset-memory");
+    toast("Tarama geçmişi sıfırlandı.", "ok");
+    await refreshStatus(true);
+  } catch (e) { toast(e.message, "err"); }
+});
+$("openFolderBtn").addEventListener("click", () => post("/api/open-folder", {}));
+$("openCurrent").addEventListener("click", () => post("/api/open-folder", { folder: $("folderPath").textContent }));
+$("exportCovers").addEventListener("click", async () => {
+  try {
+    const data = await post("/api/my-tracks/export-paired");
+    toast(data.count + " kapak görseli şarkıların yanına kopyalandı.", "ok");
+  } catch (e) { toast(e.message, "err"); }
+});
+$("source").addEventListener("change", toggleCustomBox);
+$("trackSearch").addEventListener("input", renderTracks);
+
+document.querySelectorAll("[data-folder]").forEach((btn) => {
+  btn.addEventListener("click", async () => {
+    try {
+      const data = await post("/api/my-tracks/set-folder", { folder: btn.dataset.folder });
+      $("folderPath").textContent = data.folder;
+      toast("Klasör değiştirildi.", "ok");
+      await refreshTracks(true);
+    } catch (e) { toast(e.message, "err"); }
+  });
+});
+
+$("applyFolder").addEventListener("click", async () => {
+  const val = $("customFolder").value.trim();
+  if (!val) { toast("Bir klasör yolu girin.", "err"); return; }
+  try {
+    const data = await post("/api/my-tracks/set-folder", { folder: val });
+    $("folderPath").textContent = data.folder;
+    toast("Klasör değiştirildi.", "ok");
+    await refreshTracks(true);
+  } catch (e) { toast(e.message, "err"); }
+});
+
+$("saveChannels").addEventListener("click", async () => {
+  const channels = $("channels").value.split("\n").map((s) => s.trim()).filter(Boolean);
+  if (!channels.length) { toast("En az bir kanal girin.", "err"); return; }
+  try {
+    await patchSettings({ channels });
+    $("channelCount").textContent = channels.length;
+    toast(channels.length + " kanal kaydedildi.", "ok");
+  } catch (e) { toast(e.message, "err"); }
+});
+
+["namingStyle", "source", "maxDays", "count", "minViews", "minScore"].forEach((id) => {
+  $(id).addEventListener("change", () => {
+    patchSettings({
+      naming_style: $("namingStyle").value,
+      source_type: $("source").value,
+      max_days: parseFloat($("maxDays").value),
+      track_count: parseInt($("count").value, 10),
+      min_views: parseInt($("minViews").value, 10),
+      min_score: parseInt($("minScore").value, 10)
+    }).catch(() => {});
+  });
+});
+
+document.addEventListener("keydown", (e) => {
+  if (e.target.matches("input,textarea,select")) return;
+  if (e.code === "Space") {
+    e.preventDefault();
+    const a = $("audio");
+    if (a.src) { a.paused ? a.play() : a.pause(); }
+  }
+});
+
+/* ---------------------------------------------------------- BAŞLAT */
+let booted = false;
+async function boot() {
+  if (booted) return;
+  booted = true;
+  await loadSettings().catch((e) => toast("Ayarlar yüklenemedi: " + e.message, "err"));
+  await Promise.all([refreshStatus(true), refreshTracks(true)]);
+  setInterval(() => refreshStatus(false), 1200);
+  setInterval(() => refreshTracks(false), 2500);
+}
+
+(async function start() {
+  await refreshAuth();
+  if (state.auth.onboarded) {
+    const intro = $("intro");
+    if (intro) intro.remove();
+    hideLogin();
+    boot();
+  } else {
+    runIntro();
+  }
+})();
+</script>
+</body>
+</html>

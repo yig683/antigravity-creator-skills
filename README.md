@@ -1,6 +1,6 @@
 # Antigravity Creator Skills & Shorts Automation Suite
 
-Blender EEVEE tabanlı 3D *"Nasıl İcat Edersin?"* Shorts üretim stüdyosu (`makine-studio`), dikey video tutma/kalite denetçisi (`viral-shorts-architect`), sıfır görsel turlu Chrome CDP YouTube Studio yükleyicisi (`youtube-studio-uploader`), hızlandırılmış Windows masaüstü kontrol MCP eklentisi (`computer-use`) ve Twitch/Kick `9:16` klip derleyicisi (`clip_finder`).
+Blender EEVEE tabanlı 3D *"Nasıl İcat Edersin?"* Shorts üretim stüdyosu (`makine-studio`), dikey video tutma/kalite denetçisi (`viral-shorts-architect`), sıfır görsel turlu Chrome CDP YouTube Studio yükleyicisi (`youtube-studio-uploader`), hızlandırılmış Windows masaüstü kontrol MCP eklentisi (`computer-use`), Twitch/Kick `9:16` klip derleyicisi (`clip_finder`) ve SoundCloud viral edit küratör / 320 kbps MP3 masaüstü uygulaması (`sc_studio`).
 
 Tüm sistem tek repoda toplanmıştır; ancak aşağıdaki tablodan **istediğiniz skilli veya eklentiyi tek tek (standalone `.zip` veya tek klasör olarak)** indirebilirsiniz.
 
@@ -57,7 +57,7 @@ git sparse-checkout set plugins/makine-studio
 
 ---
 
-## Çalışma Alanı Araçları (`clip_finder` & `makine_studio`)
+## Çalışma Alanı Araçları (`clip_finder`, `makine_studio` & `sc_studio`)
 
 ### 1) Makine Studio (3D Blueprint Shorts)
 ```powershell
@@ -81,3 +81,11 @@ python -m studio.pipeline --episode asansor_icat --profile shorts --mode full --
   python main.py --prepare-uploads
   node .agents/skills/youtube-studio-uploader/scripts/cdp_studio_upload.mjs --queue output/ready/upload_queue.json
   ```
+
+### 3) SC Studio 2.0 (`sc_studio/`)
+SoundCloud'daki viral edit parçalarını (hardtekk / slowed+reverb / phonk / montagem) puanlayan, 320 kbps MP3 olarak indirip akıllı başlık + ID3 ve 800×800 kapak gömen Rust + WebView2 masaüstü uygulaması ([`sc_studio/README.md`](sc_studio/README.md)).
+```powershell
+cd .\sc_studio
+cargo test
+cargo build --release
+```
