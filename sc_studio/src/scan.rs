@@ -146,12 +146,18 @@ pub async fn run_scan(
     max_days: f64,
     min_views: i64,
 ) -> Result<()> {
+    use std::sync::atomic::Ordering;
+
+    state.cancel_scan.store(false, Ordering::SeqCst);
     {
         let mut c = state.curator.write().await;
         c.scanning = true;
         c.candidates.clear();
         c.error = None;
-        c.progress = 0.0;
+        c.progress = 0.05;
+        c.stage = "Kaynaklar hazırlanıyor".into();
+        c.current.clear();
+        c.current_url.clear();
     }
 
     let day_label = if max_days > 0.0 {
@@ -242,12 +248,12 @@ pub async fn run_scan(
 
     // --- Kanal işlerini paralel çalıştır ---
     let sem = Arc::new(Semaphore::new(6));
-    let mut tasks = Vec::new();
+    let mut set: tokio::task::JoinSet<Result<(Vec<Track>, bool), String>> = tokio::task::JoinSet::new();
 
     for url in channel_urls {
         let state = Arc::clone(&state);
         let sem = Arc::clone(&sem);
-        tasks.push(tokio::spawn(async move {
+        set.spawn(async move {
             let _permit = sem.acquire().await.ok();
             state
                 .sc
@@ -255,13 +261,13 @@ pub async fn run_scan(
                 .await
                 .map(|tracks| (tracks, curated_flag))
                 .map_err(|e| e.to_string())
-        }));
+        });
     }
 
     if let Some(uid) = likes_user {
         let state = Arc::clone(&state);
         let sem = Arc::clone(&sem);
-        tasks.push(tokio::spawn(async move {
+        set.spawn(async move {
             let _permit = sem.acquire().await.ok();
             state
                 .sc
@@ -269,14 +275,14 @@ pub async fn run_scan(
                 .await
                 .map(|tracks| (tracks, false))
                 .map_err(|e| e.to_string())
-        }));
+        });
     }
 
     for job in jobs {
         let state = Arc::clone(&state);
         let sem = Arc::clone(&sem);
         let filter = filter.map(str::to_string);
-        tasks.push(tokio::spawn(async move {
+        set.spawn(async move {
             let _permit = sem.acquire().await.ok();
             state
                 .sc
@@ -284,19 +290,54 @@ pub async fn run_scan(
                 .await
                 .map(|tracks| (tracks, job.curated))
                 .map_err(|e| e.to_string())
-        }));
+        });
     }
 
-    state
-        .set_log(format!("{} kaynak paralel taranıyor...", tasks.len()))
-        .await;
+    let total_tasks = set.len().max(1);
+    {
+        let mut c = state.curator.write().await;
+        c.log = format!("{} kaynak paralel taranıyor...", total_tasks);
+        c.stage = format!("Kaynaklar 0/{}", total_tasks);
+        c.batch_index = 0;
+        c.batch_total = total_tasks;
+        c.progress = 0.08;
+    }
 
     // --- Sonuçları topla ---
     let mut raw: HashMap<String, (Track, bool, f64)> = HashMap::new();
     let mut source_errors = 0usize;
+    let mut done_tasks = 0usize;
+    let mut cancelled = false;
+    let mut cancel_poll = tokio::time::interval(std::time::Duration::from_millis(120));
 
-    for handle in tasks {
-        let Ok(result) = handle.await else {
+    loop {
+        if state.cancel_scan.load(Ordering::SeqCst) {
+            cancelled = true;
+            set.abort_all();
+            break;
+        }
+        let next = tokio::select! {
+            res = set.join_next() => res,
+            _ = cancel_poll.tick() => {
+                if state.cancel_scan.load(Ordering::SeqCst) {
+                    cancelled = true;
+                    set.abort_all();
+                    break;
+                }
+                continue;
+            }
+        };
+        let Some(joined) = next else { break };
+        done_tasks += 1;
+
+        {
+            let mut c = state.curator.write().await;
+            c.batch_index = done_tasks;
+            c.progress = 0.08 + (done_tasks as f32 / total_tasks as f32) * 0.80;
+            c.stage = format!("Kaynaklar {}/{} ({} parça)", done_tasks, total_tasks, raw.len());
+        }
+
+        let Ok(result) = joined else {
             source_errors += 1;
             continue;
         };
@@ -331,9 +372,24 @@ pub async fn run_scan(
         }
     }
 
+    if cancelled {
+        let mut c = state.curator.write().await;
+        c.scanning = false;
+        c.progress = 0.0;
+        c.batch_index = 0;
+        c.batch_total = 0;
+        c.stage.clear();
+        c.log = "Tarama durduruldu.".into();
+        return Ok(());
+    }
+
     if raw.is_empty() {
         let mut c = state.curator.write().await;
         c.scanning = false;
+        c.progress = 0.0;
+        c.batch_index = 0;
+        c.batch_total = 0;
+        c.stage.clear();
         c.log = if source_errors > 0 {
             format!(
                 "Hiç sonuç alınamadı ({} kaynak hata verdi). Tarih aralığını genişletmeyi deneyin.",
@@ -343,6 +399,12 @@ pub async fn run_scan(
             "Şarkı bulunamadı. Tarih aralığını genişletmeyi deneyin.".into()
         };
         return Ok(());
+    }
+
+    {
+        let mut c = state.curator.write().await;
+        c.stage = "AI puanlama".into();
+        c.progress = 0.92;
     }
 
     // --- Daha önce görülenleri ele ---
@@ -436,6 +498,10 @@ pub async fn run_scan(
 
     let mut c = state.curator.write().await;
     c.scanning = false;
+    c.progress = 1.0;
+    c.batch_index = 0;
+    c.batch_total = 0;
+    c.stage.clear();
     c.candidates = final_list.clone();
     c.seen_count = state.seen.read().await.len();
 

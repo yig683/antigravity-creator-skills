@@ -172,6 +172,16 @@ async fn run_ffmpeg(
 
     let mut child = cmd.spawn().context("ffmpeg başlatılamadı")?;
 
+    let stderr_task = child.stderr.take().map(|stderr| {
+        tokio::spawn(async move {
+            use tokio::io::AsyncReadExt;
+            let mut buf = Vec::new();
+            let mut r = stderr;
+            let _ = r.read_to_end(&mut buf).await;
+            buf
+        })
+    });
+
     if let Some(stdout) = child.stdout.take() {
         let state = Arc::clone(state);
         tokio::spawn(async move {
@@ -189,9 +199,25 @@ async fn run_ffmpeg(
         });
     }
 
-    let output = child.wait_with_output().await?;
-    if !output.status.success() {
-        let err = String::from_utf8_lossy(&output.stderr);
+    let mut cancel_poll = tokio::time::interval(std::time::Duration::from_millis(120));
+    let status = loop {
+        if state.cancel_download.load(std::sync::atomic::Ordering::SeqCst) {
+            let _ = child.start_kill();
+            let _ = child.wait().await;
+            return Err(anyhow!("İndirme durduruldu"));
+        }
+        tokio::select! {
+            res = child.wait() => break res?,
+            _ = cancel_poll.tick() => {}
+        }
+    };
+
+    let stderr_bytes = match stderr_task {
+        Some(t) => t.await.unwrap_or_default(),
+        None => Vec::new(),
+    };
+    if !status.success() {
+        let err = String::from_utf8_lossy(&stderr_bytes);
         let msg = err.lines().last().unwrap_or("bilinmeyen ffmpeg hatası");
         return Err(anyhow!("dönüştürme başarısız: {}", msg.trim()));
     }
@@ -203,20 +229,38 @@ async fn run_ffmpeg(
 
 /// Tek bir parçayı indirir, başlık + kapak + etiket uygular.
 pub async fn download_one(state: &Arc<AppState>, item: &DownloadItem, index: usize, total: usize) -> Result<PathBuf> {
+    use std::sync::atomic::Ordering;
+
+    if state.cancel_download.load(Ordering::SeqCst) {
+        return Err(anyhow!("İndirme durduruldu"));
+    }
+
     let cfg = state.cfg.read().await.clone();
     let target_dir = cfg.target_dir();
     crate::paths::ensure_dir(&target_dir)?;
 
-    state.curator.write().await.log = format!(
-        "[{}/{}] Parça bilgisi alınıyor: {}",
-        index,
-        total,
-        if item.title.is_empty() { &item.url } else { &item.title }
-    );
+    {
+        let mut c = state.curator.write().await;
+        c.current = if item.title.is_empty() { item.url.clone() } else { item.title.clone() };
+        c.current_url = item.url.clone();
+        c.stage = "Çözümleniyor".into();
+        c.batch_index = index;
+        c.batch_total = total;
+        c.log = format!(
+            "[{}/{}] Parça bilgisi alınıyor: {}",
+            index,
+            total,
+            if item.title.is_empty() { &item.url } else { &item.title }
+        );
+    }
 
     // 1) Parça meta verisi
     let value = state.sc.resolve(&item.url).await?;
     let track: Track = Track::from_json(&value).ok_or_else(|| anyhow!("parça çözümlenemedi"))?;
+
+    if state.cancel_download.load(Ordering::SeqCst) {
+        return Err(anyhow!("İndirme durduruldu"));
+    }
 
     // 2) Akış adresi
     let source = state
@@ -256,11 +300,13 @@ pub async fn download_one(state: &Arc<AppState>, item: &DownloadItem, index: usi
             "[{}/{}] {}: {}",
             index,
             total,
-            if source.mp3 { "İndiriliyor" } else { "İndiriliyor ve MP3'e çevriliyor" },
+            if source.mp3 { "İndiriliyor" } else { "320 kbps MP3'e çevriliyor" },
             final_name
         );
         c.progress = (index.saturating_sub(1)) as f32 / total.max(1) as f32;
         c.current = final_name.clone();
+        c.current_url = item.url.clone();
+        c.stage = if source.mp3 { "MP3 İndiriliyor".into() } else { "320k MP3".into() };
         c.batch_index = index;
         c.batch_total = total;
     }
@@ -274,6 +320,10 @@ pub async fn download_one(state: &Arc<AppState>, item: &DownloadItem, index: usi
     std::fs::rename(&tmp, &final_path)?;
 
     // 5) Kapak
+    {
+        let mut c = state.curator.write().await;
+        c.stage = "Kapak".into();
+    }
     let cover_name = cover_filename(&final_name);
     let cover_path = crate::paths::covers_dir().join(&cover_name);
 
@@ -300,6 +350,10 @@ pub async fn download_one(state: &Arc<AppState>, item: &DownloadItem, index: usi
     }
 
     // 6) ID3 etiketleri
+    {
+        let mut c = state.curator.write().await;
+        c.stage = "ID3".into();
+    }
     let title_for_tag = base_name.clone();
     let artist = if track.uploader.is_empty() {
         "SoundCloud".to_string()
@@ -342,11 +396,19 @@ pub async fn download_one(state: &Arc<AppState>, item: &DownloadItem, index: usi
 
 /// Seçilen parçaları sırayla indirir.
 pub async fn run_batch(state: Arc<AppState>, items: Vec<DownloadItem>) {
+    use std::sync::atomic::Ordering;
+
+    state.cancel_download.store(false, Ordering::SeqCst);
     {
         let mut c = state.curator.write().await;
         c.downloading = true;
         c.error = None;
         c.progress = 0.0;
+        c.stage = "Hazırlanıyor".into();
+        c.current.clear();
+        c.current_url.clear();
+        c.completed_urls.clear();
+        c.failed_urls.clear();
         c.batch_index = 0;
         c.batch_total = items.len();
     }
@@ -354,28 +416,48 @@ pub async fn run_batch(state: Arc<AppState>, items: Vec<DownloadItem>) {
     let total = items.len();
     let mut ok = 0usize;
     let mut failed = 0usize;
+    let mut cancelled = false;
     let mut last_error: Option<String> = None;
 
     for (i, item) in items.iter().enumerate() {
+        if state.cancel_download.load(Ordering::SeqCst) {
+            cancelled = true;
+            break;
+        }
         match download_one(&state, item, i + 1, total).await {
-            Ok(_) => ok += 1,
+            Ok(_) => {
+                ok += 1;
+                state.curator.write().await.completed_urls.push(item.url.clone());
+            }
             Err(e) => {
+                if state.cancel_download.load(Ordering::SeqCst) {
+                    cancelled = true;
+                    break;
+                }
                 failed += 1;
                 last_error = Some(e.to_string());
+                state.curator.write().await.failed_urls.push(item.url.clone());
             }
         }
     }
 
     let mut c = state.curator.write().await;
     c.downloading = false;
-    c.progress = 1.0;
     c.current.clear();
+    c.current_url.clear();
+    c.stage.clear();
     c.batch_index = 0;
     c.batch_total = 0;
-    if failed == 0 {
+    if cancelled {
+        c.progress = 0.0;
+        c.log = format!("İndirme durduruldu ({} parça tamamlandı).", ok);
+        c.error = None;
+    } else if failed == 0 {
+        c.progress = 1.0;
         c.log = format!("✓ İndirme tamamlandı! {} şarkı yeni başlık ve kapakla hazırlandı.", ok);
         c.error = None;
     } else {
+        c.progress = 1.0;
         c.log = format!("İndirme bitti: {} şarkı hazır, {} şarkı indirilemedi.", ok, failed);
         c.error = last_error;
     }

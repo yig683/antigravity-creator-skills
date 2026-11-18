@@ -68,6 +68,18 @@ pub struct Config {
     pub sc_client_secret: String,
     /// Kayıtlı yönlendirme adresiyle BİREBİR aynı olmalı.
     pub sc_redirect_uri: String,
+
+    /// Pencere konumu, boyutu ve oynatıcı tercihleri (oturumlar arası korunur).
+    pub win_x: Option<i32>,
+    pub win_y: Option<i32>,
+    pub win_w: Option<u32>,
+    pub win_h: Option<u32>,
+    pub win_maximized: bool,
+    pub player_volume: f64,
+    pub player_muted: bool,
+    pub playback_rate: f64,
+    pub library_sort: String,
+    pub cand_sort: String,
 }
 
 impl Default for Config {
@@ -88,6 +100,16 @@ impl Default for Config {
             sc_client_id: String::new(),
             sc_client_secret: String::new(),
             sc_redirect_uri: "http://127.0.0.1:47821/oauth/callback".into(),
+            win_x: None,
+            win_y: None,
+            win_w: None,
+            win_h: None,
+            win_maximized: false,
+            player_volume: 0.9,
+            player_muted: false,
+            playback_rate: 1.0,
+            library_sort: "recent".into(),
+            cand_sort: "score".into(),
         }
     }
 }
@@ -109,7 +131,34 @@ impl Config {
         if !self.max_days.is_finite() || self.max_days < 0.0 {
             self.max_days = 0.0;
         }
+        if !self.player_volume.is_finite() {
+            self.player_volume = 0.9;
+        }
+        self.player_volume = self.player_volume.clamp(0.0, 1.0);
+        if !self.playback_rate.is_finite() {
+            self.playback_rate = 1.0;
+        }
+        self.playback_rate = self.playback_rate.clamp(0.5, 2.0);
+        if !matches!(self.library_sort.as_str(), "recent" | "name" | "size") {
+            self.library_sort = "recent".into();
+        }
+        if !matches!(self.cand_sort.as_str(), "score" | "views" | "likes" | "recent") {
+            self.cand_sort = "score".into();
+        }
         self
+    }
+
+    pub fn active_folder_preset(&self) -> &'static str {
+        let cur = self.target_dir();
+        if cur == crate::paths::default_music_dir() {
+            "music"
+        } else if cur == crate::paths::downloads_preset_dir() {
+            "downloads"
+        } else if cur == crate::paths::studio_preset_dir() {
+            "studio"
+        } else {
+            "custom"
+        }
     }
 
     /// Giriş akışı için gereken alanlar dolu mu?
@@ -176,7 +225,7 @@ impl Config {
 pub fn load() -> Config {
     let path = crate::paths::config_file();
     match std::fs::read_to_string(&path) {
-        Ok(text) => serde_json::from_str::<Config>(&text)
+        Ok(text) => serde_json::from_str::<Config>(text.trim_start_matches('\u{feff}'))
             .map(|c| c.sanitized())
             .unwrap_or_default(),
         Err(_) => Config::default(),
@@ -197,4 +246,36 @@ pub fn save_atomic<T: Serialize>(path: &Path, value: &T) -> std::io::Result<()> 
 
 pub fn save(cfg: &Config) -> std::io::Result<()> {
     save_atomic(&crate::paths::config_file(), cfg)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn legacy_config_loads_with_ui_defaults() {
+        let legacy = r#"{"naming_style":"slowed","track_count":8,"onboarded":true}"#;
+        let cfg: Config = serde_json::from_str::<Config>(legacy).unwrap().sanitized();
+        assert_eq!(cfg.naming_style, "slowed");
+        assert_eq!(cfg.track_count, 8);
+        assert!(cfg.onboarded);
+        assert!((cfg.player_volume - 0.9).abs() < 1e-6);
+        assert!((cfg.playback_rate - 1.0).abs() < 1e-6);
+        assert_eq!(cfg.library_sort, "recent");
+        assert_eq!(cfg.cand_sort, "score");
+    }
+
+    #[test]
+    fn sanitized_clamps_ui_and_player_fields() {
+        let mut cfg = Config::default();
+        cfg.player_volume = 2.5;
+        cfg.playback_rate = 9.0;
+        cfg.library_sort = "invalid".into();
+        cfg.cand_sort = "invalid".into();
+        let clean = cfg.sanitized();
+        assert_eq!(clean.player_volume, 1.0);
+        assert_eq!(clean.playback_rate, 2.0);
+        assert_eq!(clean.library_sort, "recent");
+        assert_eq!(clean.cand_sort, "score");
+    }
 }

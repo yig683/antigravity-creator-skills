@@ -469,6 +469,46 @@ impl ScClient {
         Err("Uygun akış bulunamadı".into())
     }
 
+    /// Dinleme önizlemesi için akış çözer: `(url, is_progressive, is_mp3)`.
+    /// Öncelik: şifresiz progressive (anında çalar) → HLS (ffmpeg ile geçici önbellek).
+    pub async fn preview_source(&self, track: &Track) -> Result<(String, bool, bool), String> {
+        if let Some(t) = track
+            .transcodings
+            .iter()
+            .find(|t| t.protocol == "progressive" && !t.protocol.contains("encrypted"))
+        {
+            if let Ok(url) = self.resolve_transcoding(&t.url, &track.track_authorization).await {
+                return Ok((url, true, is_mp3_mime(&t.mime)));
+            }
+        }
+        if let Ok(src) = self.stream_source(track).await {
+            return Ok((src.url, false, src.mp3));
+        }
+        if let Some(t) = track
+            .transcodings
+            .iter()
+            .find(|t| t.protocol == "hls" && !t.protocol.contains("encrypted"))
+        {
+            if let Ok(url) = self.resolve_transcoding(&t.url, &track.track_authorization).await {
+                return Ok((url, false, is_mp3_mime(&t.mime)));
+            }
+        }
+        Err("Bu parça önizlenemedi".into())
+    }
+
+    /// Önizleme için verilen ses URL'sini (gerekirse Range başlığı ile) okur.
+    pub async fn fetch_audio_response(&self, url: &str, range: Option<&str>) -> Result<reqwest::Response, String> {
+        let mut req = self.http.get(url);
+        if let Some(r) = range {
+            req = req.header(reqwest::header::RANGE, r);
+        }
+        let resp = req.send().await.map_err(|e| e.to_string())?;
+        if !resp.status().is_success() && resp.status() != reqwest::StatusCode::PARTIAL_CONTENT {
+            return Err(format!("Ses akışı hatası: HTTP {}", resp.status()));
+        }
+        Ok(resp)
+    }
+
     async fn resolve_transcoding(&self, transcoding_url: &str, track_auth: &str) -> Result<String, String> {
         let cid = self.client_id().await;
         let sep = if transcoding_url.contains('?') { '&' } else { '?' };

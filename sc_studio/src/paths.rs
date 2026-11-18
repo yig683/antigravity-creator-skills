@@ -40,8 +40,32 @@ pub fn default_music_dir() -> PathBuf {
     home().join("Music").join(MUSIC_DIR_NAME)
 }
 
+pub fn downloads_preset_dir() -> PathBuf {
+    home().join("Downloads").join("my_tracks")
+}
+
+pub fn studio_preset_dir() -> PathBuf {
+    data_dir().join("my_tracks")
+}
+
 pub fn covers_dir() -> PathBuf {
     data_dir().join("covers")
+}
+
+pub fn preview_cache_dir() -> PathBuf {
+    data_dir().join("preview_cache")
+}
+
+pub fn cleanup_preview_cache() {
+    let dir = preview_cache_dir();
+    if let Ok(entries) = std::fs::read_dir(dir) {
+        for entry in entries.flatten() {
+            let p = entry.path();
+            if p.is_file() {
+                let _ = std::fs::remove_file(p);
+            }
+        }
+    }
 }
 
 /// Kullanıcının kendi eklediği kapak görselleri.

@@ -45,10 +45,27 @@ pub struct CuratorStatus {
     pub progress: f32,
     /// Şu anda işlenen parçanın adı.
     pub current: String,
+    /// Şu anda indirilen adayın SoundCloud URL'si (aday kartı vurgusu için).
+    pub current_url: String,
+    /// Aktif indirme / tarama aşaması ("Çözümleniyor", "320k MP3", "Kapak", "ID3" vb.).
+    pub stage: String,
+    /// Mevcut / son toplu indirmede başarıyla inen URL'ler.
+    pub completed_urls: Vec<String>,
+    /// Mevcut / son toplu indirmede başarısız olan URL'ler.
+    pub failed_urls: Vec<String>,
     /// Toplu indirmede kaçıncı parça / toplam (indirme yoksa 0).
     pub batch_index: usize,
     pub batch_total: usize,
     /// Son hata (arayüzde kırmızı uyarı olarak gösterilir).
+    pub error: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Default)]
+pub struct UploadStatus {
+    pub active: bool,
+    pub filename: String,
+    pub stage: String,
+    pub ok: bool,
     pub error: Option<String>,
 }
 
@@ -62,8 +79,17 @@ pub struct AppState {
     /// Yalnızca bu açıkken tarayıcının bildirdiği hesap kabul edilir; böylece
     /// çıkış yaptıktan sonra "Keşfet" penceresi oturumu kendiliğinden geri açmaz.
     pub login_pending: std::sync::atomic::AtomicBool,
+    /// Uygulama içi tarayıcı penceresi şu anda açık mı?
+    pub browser_open: std::sync::atomic::AtomicBool,
+    /// Aktif tarama veya indirmeyi kullanıcı isteğiyle durdurma bayrakları.
+    pub cancel_scan: std::sync::atomic::AtomicBool,
+    pub cancel_download: std::sync::atomic::AtomicBool,
+    /// Ana pencerenin yerel Win32 HWND tutamacı (klasör iletişim kutusu sahipliği için).
+    pub main_hwnd: std::sync::atomic::AtomicIsize,
     /// Uygulama içi tarayıcıda en son görülen adres.
     pub browser_url: Mutex<String>,
+    /// SoundCloud dahili yükleme durumu.
+    pub upload_status: RwLock<UploadStatus>,
     /// Arayüz thread'ine olay göndermek için (tarayıcı penceresi vb.).
     pub ui_tx: Mutex<Option<tao::event_loop::EventLoopProxy<crate::ui::UiEvent>>>,
     pub seen: RwLock<HashSet<String>>,
@@ -92,7 +118,12 @@ impl AppState {
             auth: RwLock::new(crate::auth::load()),
             pending_auth: PendingAuth::default(),
             login_pending: std::sync::atomic::AtomicBool::new(false),
+            browser_open: std::sync::atomic::AtomicBool::new(false),
+            cancel_scan: std::sync::atomic::AtomicBool::new(false),
+            cancel_download: std::sync::atomic::AtomicBool::new(false),
+            main_hwnd: std::sync::atomic::AtomicIsize::new(0),
             browser_url: Mutex::new(String::new()),
+            upload_status: RwLock::new(UploadStatus::default()),
             ui_tx: Mutex::new(None),
             seen: RwLock::new(load_seen()),
             meta: RwLock::new(load_meta()),

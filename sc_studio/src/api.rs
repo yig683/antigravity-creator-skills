@@ -9,7 +9,7 @@ use crate::download::{self, DownloadItem};
 use crate::scan;
 use crate::state::{save_meta, AppState, TrackMeta};
 use axum::body::Body;
-use axum::extract::{Path as AxPath, State};
+use axum::extract::{Path as AxPath, Query, State};
 use axum::http::{header, HeaderMap, StatusCode};
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post};
@@ -28,7 +28,11 @@ pub fn router(state: Shared) -> Router {
         .route("/covers/{*path}", get(cover_file))
         .route("/downloads/{*path}", get(audio_file))
         .route("/api/health", get(health))
+        .route("/api/app/info", get(app_info))
+        .route("/api/app/confirm-exit", post(confirm_exit))
         .route("/api/open-folder", post(open_folder))
+        .route("/api/folder/browse", post(browse_folder))
+        .route("/api/folder/reveal", post(reveal_file))
         .route("/api/settings", get(get_settings).post(set_settings))
         .route("/api/auth/status", get(auth_status))
         .route("/api/auth/start", post(auth_start))
@@ -38,8 +42,14 @@ pub fn router(state: Shared) -> Router {
         .route("/api/onboarding/complete", post(onboarding_complete))
         .route("/api/browser/open", post(browser_open))
         .route("/api/browser/url", get(browser_url))
+        .route("/api/soundcloud/nav", post(sc_nav))
+        .route("/api/soundcloud/monetize-sweep", post(sc_monetize_sweep))
+        .route("/api/archive/upload", post(archive_upload))
+        .route("/api/upload/status", get(upload_status))
         .route("/api/curator/reset-memory", post(reset_memory))
         .route("/api/curator/scan", post(start_scan))
+        .route("/api/curator/cancel", post(cancel_curator))
+        .route("/api/curator/preview", get(curator_preview))
         .route("/api/curator/download-selected", post(download_selected))
         .route("/api/trends/status", get(trends_status))
         .route("/api/archive/cover/{name}", get(archive_cover))
@@ -248,6 +258,102 @@ async fn open_folder(State(state): State<Shared>, body: Option<Json<FolderReq>>)
     Json(json!({ "success": true, "folder": path.display().to_string() })).into_response()
 }
 
+#[derive(Deserialize)]
+struct RevealReq {
+    filename: String,
+}
+
+async fn reveal_file(State(state): State<Shared>, Json(req): Json<RevealReq>) -> Response {
+    let dir = state.cfg.read().await.target_dir();
+    let Some(path) = safe_join(&dir, req.filename.trim()) else {
+        return json_error(StatusCode::BAD_REQUEST, "Geçersiz dosya adı");
+    };
+    if !path.is_file() {
+        return json_error(StatusCode::NOT_FOUND, "Dosya bulunamadı");
+    }
+    #[cfg(windows)]
+    {
+        let arg = format!("/select,{}", path.display());
+        let _ = std::process::Command::new("explorer").arg(arg).spawn();
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = std::process::Command::new("xdg-open").arg(&dir).spawn();
+    }
+    Json(json!({ "success": true })).into_response()
+}
+
+async fn browse_folder(State(state): State<Shared>) -> Response {
+    use std::sync::atomic::Ordering;
+
+    let current = state.cfg.read().await.target_dir();
+    let hwnd = state.main_hwnd.load(Ordering::Relaxed);
+    let picked = tokio::task::spawn_blocking(move || {
+        crate::winmsg::pick_folder_dialog(hwnd, "Şarkı Arşiv Klasörünü Seçin", Some(&current))
+    })
+    .await
+    .ok()
+    .flatten();
+
+    let Some(selected) = picked else {
+        return Json(json!({ "success": true, "cancelled": true })).into_response();
+    };
+    let resolved = PathBuf::from(selected.trim());
+    if let Err(e) = crate::paths::ensure_dir(&resolved) {
+        return json_error(StatusCode::BAD_REQUEST, format!("Klasör kullanılamadı: {}", e));
+    }
+
+    let preset = {
+        let mut cfg = state.cfg.write().await;
+        cfg.uploader_source_dir = resolved.display().to_string();
+        let snapshot = cfg.clone();
+        drop(cfg);
+        let _ = config::save(&snapshot);
+        snapshot.active_folder_preset()
+    };
+
+    Json(json!({
+        "success": true,
+        "cancelled": false,
+        "folder": resolved.display().to_string(),
+        "preset": preset,
+    }))
+    .into_response()
+}
+
+async fn app_info(State(state): State<Shared>) -> Json<Value> {
+    let cfg = state.cfg.read().await.clone();
+    let ff = crate::paths::ffmpeg_path();
+    let art_count = state.art.lock().map(|p| p.count()).unwrap_or(0);
+    let seen_count = state.seen.read().await.len();
+    let meta_count = state.meta.read().await.len();
+    let cur = state.curator.read().await.clone();
+
+    Json(json!({
+        "version": env!("CARGO_PKG_VERSION"),
+        "ffmpeg_ok": ff.is_file(),
+        "ffmpeg_path": ff.display().to_string(),
+        "data_dir": crate::paths::data_dir().display().to_string(),
+        "covers_dir": crate::paths::covers_dir().display().to_string(),
+        "target_dir": cfg.target_dir().display().to_string(),
+        "target_preset": cfg.active_folder_preset(),
+        "artwork_count": art_count,
+        "seen_count": seen_count,
+        "meta_count": meta_count,
+        "scanning": cur.scanning,
+        "downloading": cur.downloading,
+    }))
+}
+
+async fn confirm_exit(State(state): State<Shared>) -> Response {
+    use std::sync::atomic::Ordering;
+    state.cancel_scan.store(true, Ordering::SeqCst);
+    state.cancel_download.store(true, Ordering::SeqCst);
+    let _ = crate::download::cleanup_stale_parts(&state.cfg.read().await.target_dir());
+    crate::paths::cleanup_preview_cache();
+    send_ui(&state, crate::ui::UiEvent::ForceExit)
+}
+
 async fn get_settings(State(state): State<Shared>) -> Json<Value> {
     let cfg = state.cfg.read().await.clone();
     let covers = crate::paths::covers_dir();
@@ -260,7 +366,9 @@ async fn get_settings(State(state): State<Shared>) -> Json<Value> {
     Json(json!({
         "config": safe,
         "oauth_configured": cfg.oauth_configured(),
+        "ffmpeg_ok": crate::paths::ffmpeg_path().is_file(),
         "target_dir": cfg.target_dir().display().to_string(),
+        "target_preset": cfg.active_folder_preset(),
         "covers_dir": covers.display().to_string(),
         "artwork_count": art_count,
         "naming_styles": config::NAMING_STYLES,
@@ -333,6 +441,21 @@ fn merge_config(cfg: &mut Config, patch: &Value) {
         if !v.is_empty() {
             cfg.sc_redirect_uri = v.to_string();
         }
+    }
+    if let Some(v) = obj.get("player_volume").and_then(Value::as_f64) {
+        cfg.player_volume = v;
+    }
+    if let Some(v) = obj.get("player_muted").and_then(Value::as_bool) {
+        cfg.player_muted = v;
+    }
+    if let Some(v) = obj.get("playback_rate").and_then(Value::as_f64) {
+        cfg.playback_rate = v;
+    }
+    if let Some(v) = obj.get("library_sort").and_then(Value::as_str) {
+        cfg.library_sort = v.to_string();
+    }
+    if let Some(v) = obj.get("cand_sort").and_then(Value::as_str) {
+        cfg.cand_sort = v.to_string();
     }
 }
 
@@ -444,6 +567,119 @@ async fn start_scan(State(state): State<Shared>, Json(req): Json<ScanReq>) -> Re
     Json(json!({ "success": true })).into_response()
 }
 
+async fn cancel_curator(State(state): State<Shared>) -> Response {
+    use std::sync::atomic::Ordering;
+
+    state.cancel_scan.store(true, Ordering::SeqCst);
+    state.cancel_download.store(true, Ordering::SeqCst);
+    {
+        let mut c = state.curator.write().await;
+        if c.scanning || c.downloading {
+            c.log = "İşlem durduruluyor...".into();
+        }
+    }
+    Json(json!({ "success": true })).into_response()
+}
+
+#[derive(Deserialize)]
+struct PreviewQuery {
+    url: String,
+}
+
+fn preview_cache_path(url: &str) -> PathBuf {
+    let mut hash: u64 = 0xcbf2_9ce4_8422_2325;
+    for b in url.as_bytes() {
+        hash ^= *b as u64;
+        hash = hash.wrapping_mul(0x0100_0000_01b3);
+    }
+    crate::paths::preview_cache_dir().join(format!("p_{:016x}.mp3", hash))
+}
+
+async fn curator_preview(
+    State(state): State<Shared>,
+    Query(q): Query<PreviewQuery>,
+    headers: HeaderMap,
+) -> Response {
+    let url = q.url.trim();
+    if !(url.starts_with("https://soundcloud.com/") || url.starts_with("https://on.soundcloud.com/")) {
+        return json_error(StatusCode::BAD_REQUEST, "Geçersiz SoundCloud bağlantısı.");
+    }
+
+    let cache_dir = crate::paths::preview_cache_dir();
+    let _ = crate::paths::ensure_dir(&cache_dir);
+    let cache_path = preview_cache_path(url);
+
+    if cache_path.is_file() {
+        return serve_file(&cache_path, &headers, None);
+    }
+
+    let value = match state.sc.resolve(url).await {
+        Ok(v) => v,
+        Err(e) => return json_error(StatusCode::BAD_GATEWAY, format!("Parça çözümlenemedi: {}", e)),
+    };
+    let Some(track) = crate::sc::Track::from_json(&value) else {
+        return json_error(StatusCode::BAD_GATEWAY, "Parça bilgisi okunamadı.");
+    };
+    let (stream_url, is_prog, is_mp3) = match state.sc.preview_source(&track).await {
+        Ok(s) => s,
+        Err(e) => return json_error(StatusCode::UNPROCESSABLE_ENTITY, e),
+    };
+
+    let tmp_path = cache_path.with_extension(format!("{}.tmp", std::process::id()));
+    let _ = std::fs::remove_file(&tmp_path);
+
+    if is_prog && is_mp3 {
+        match state.sc.fetch_audio_response(&stream_url, None).await {
+            Ok(resp) => {
+                if let Ok(bytes) = resp.bytes().await {
+                    if !bytes.is_empty() && std::fs::write(&tmp_path, &bytes).is_ok() {
+                        let _ = std::fs::rename(&tmp_path, &cache_path);
+                        if cache_path.is_file() {
+                            return serve_file(&cache_path, &headers, None);
+                        }
+                    }
+                }
+            }
+            Err(e) => return json_error(StatusCode::BAD_GATEWAY, e),
+        }
+    }
+
+    let ffmpeg = crate::paths::ffmpeg_path();
+    if !ffmpeg.is_file() {
+        return json_error(
+            StatusCode::PRECONDITION_FAILED,
+            "Bu parçanın önizlemesi HLS akışı kullanıyor; çalmak için ffmpeg.exe gerekli.",
+        );
+    }
+
+    let mut cmd = tokio::process::Command::new(&ffmpeg);
+    cmd.args(["-y", "-hide_banner", "-loglevel", "error", "-t", "45", "-i"])
+        .arg(&stream_url)
+        .args(["-vn", "-c:a", "libmp3lame", "-b:a", "128k", "-f", "mp3"])
+        .arg(&tmp_path)
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::piped())
+        .stdin(std::process::Stdio::null())
+        .kill_on_drop(true);
+    #[cfg(windows)]
+    cmd.creation_flags(0x0800_0000);
+
+    let out = match cmd.output().await {
+        Ok(o) => o,
+        Err(e) => return json_error(StatusCode::INTERNAL_SERVER_ERROR, format!("Önizleme başlatılamadı: {}", e)),
+    };
+    if !out.status.success() || !tmp_path.is_file() {
+        let _ = std::fs::remove_file(&tmp_path);
+        return json_error(StatusCode::BAD_GATEWAY, "Parça akışı çözülemedi.");
+    }
+    if std::fs::rename(&tmp_path, &cache_path).is_err() {
+        let _ = std::fs::remove_file(&tmp_path);
+        return json_error(StatusCode::INTERNAL_SERVER_ERROR, "Önizleme önbelleğe alınamadı.");
+    }
+
+    serve_file(&cache_path, &headers, None)
+}
+
 #[derive(Deserialize)]
 struct DownloadReq {
     #[serde(default)]
@@ -488,6 +724,10 @@ async fn download_selected(State(state): State<Shared>, Json(req): Json<Download
     Json(json!({ "success": true })).into_response()
 }
 
+fn is_temp_part_name(name: &str) -> bool {
+    name.starts_with(".scs_") && name.ends_with(".part.mp3")
+}
+
 async fn trends_status(State(state): State<Shared>) -> Json<Value> {
     let status = state.curator.read().await.clone();
     let cfg = state.cfg.read().await.clone();
@@ -499,6 +739,9 @@ async fn trends_status(State(state): State<Shared>) -> Json<Value> {
             let path = entry.path();
             if path.extension().map(|e| e.eq_ignore_ascii_case("mp3")).unwrap_or(false) {
                 let name = path.file_name().unwrap_or_default().to_string_lossy().to_string();
+                if is_temp_part_name(&name) {
+                    continue;
+                }
                 let size = entry.metadata().map(|m| m.len()).unwrap_or(0);
                 files.push(json!({
                     "name": name,
@@ -637,6 +880,9 @@ async fn my_tracks(State(state): State<Shared>) -> Json<Value> {
                 continue;
             }
             let name = path.file_name().unwrap_or_default().to_string_lossy().to_string();
+            if is_temp_part_name(&name) {
+                continue;
+            }
             let fmeta = entry.metadata().ok();
             let size = fmeta.as_ref().map(|m| m.len()).unwrap_or(0);
             let modified = fmeta
@@ -659,6 +905,8 @@ async fn my_tracks(State(state): State<Shared>) -> Json<Value> {
                 "smart_title": smart_title,
                 "cover_url": format!("/api/archive/cover/{}", urlencoding::encode(&name)),
                 "size": human_size(size),
+                "bytes": size,
+                "ext": ext.to_uppercase(),
                 "modified": modified,
                 "editable": ext == "mp3",
             }));
@@ -717,6 +965,9 @@ async fn regenerate(State(state): State<Shared>, Json(req): Json<RegenerateReq>)
                     continue;
                 }
                 let name = path.file_name().unwrap_or_default().to_string_lossy().to_string();
+                if is_temp_part_name(&name) {
+                    continue;
+                }
                 if meta.contains_key(&name) || path.with_extension("jpg").is_file() {
                     all.push(name);
                 }
@@ -886,12 +1137,8 @@ async fn set_folder(State(state): State<Shared>, Json(req): Json<FolderSetReq>) 
     let raw = req.folder.trim().to_string();
     let resolved = match raw.as_str() {
         "music" | "" => crate::paths::default_music_dir(),
-        "downloads" => std::env::var_os("USERPROFILE")
-            .map(PathBuf::from)
-            .unwrap_or_default()
-            .join("Downloads")
-            .join("my_tracks"),
-        "studio" => crate::paths::data_dir().join("my_tracks"),
+        "downloads" => crate::paths::downloads_preset_dir(),
+        "studio" => crate::paths::studio_preset_dir(),
         other => PathBuf::from(other),
     };
 
@@ -902,15 +1149,21 @@ async fn set_folder(State(state): State<Shared>, Json(req): Json<FolderSetReq>) 
         );
     }
 
-    {
+    let preset = {
         let mut cfg = state.cfg.write().await;
         cfg.uploader_source_dir = resolved.display().to_string();
         let snapshot = cfg.clone();
         drop(cfg);
         let _ = config::save(&snapshot);
-    }
+        snapshot.active_folder_preset()
+    };
 
-    Json(json!({ "success": true, "folder": resolved.display().to_string() })).into_response()
+    Json(json!({
+        "success": true,
+        "folder": resolved.display().to_string(),
+        "preset": preset,
+    }))
+    .into_response()
 }
 
 async fn export_paired(State(state): State<Shared>) -> Response {
@@ -968,6 +1221,7 @@ async fn auth_status(State(state): State<Shared>) -> Json<Value> {
         "has_client_id": !cfg.oauth_client_id().is_empty(),
         "builtin": crate::config::Config::oauth_builtin(),
         "has_client_secret": !cfg.oauth_client_secret().is_empty(),
+        "has_oauth_token": !auth.access_token.is_empty(),
     }))
 }
 
@@ -1190,7 +1444,320 @@ fn send_ui(state: &Shared, event: crate::ui::UiEvent) -> Response {
 
 async fn browser_url(State(state): State<Shared>) -> Json<Value> {
     let url = state.browser_url.lock().map(|u| u.clone()).unwrap_or_default();
-    Json(json!({ "url": url }))
+    let open = state.browser_open.load(std::sync::atomic::Ordering::Relaxed);
+    Json(json!({ "url": url, "open": open }))
+}
+
+#[derive(Deserialize)]
+struct ScNavReq {
+    target: String,
+}
+
+async fn sc_nav(State(state): State<Shared>, Json(req): Json<ScNavReq>) -> Response {
+    let target = req.target.trim().to_string();
+    let valid = matches!(target.as_str(), "back" | "forward" | "reload")
+        || target.starts_with("https://soundcloud.com")
+        || target.starts_with("https://artists.soundcloud.com");
+    if !valid {
+        return json_error(StatusCode::BAD_REQUEST, "Geçersiz SoundCloud adresi.");
+    }
+    send_ui(&state, crate::ui::UiEvent::ScNavigate(target))
+}
+
+fn default_true() -> bool {
+    true
+}
+
+#[derive(Deserialize)]
+struct MonetizeSweepReq {
+    #[serde(default = "default_true")]
+    resubmit_rejected: bool,
+    #[serde(default = "default_true")]
+    submit_unsubmitted: bool,
+}
+
+async fn sc_monetize_sweep(
+    State(state): State<Shared>,
+    body: Option<Json<MonetizeSweepReq>>,
+) -> Response {
+    if state.upload_status.read().await.active {
+        return json_error(StatusCode::CONFLICT, "Şu anda başka bir yükleme veya monetize işlemi sürüyor.");
+    }
+    let req = body.map(|b| b.0).unwrap_or(MonetizeSweepReq {
+        resubmit_rejected: true,
+        submit_unsubmitted: true,
+    });
+    let artist_hint = state.auth.read().await.username.clone();
+    {
+        let mut st = state.upload_status.write().await;
+        st.active = true;
+        st.ok = false;
+        st.error = None;
+        st.filename = "Monetize".into();
+        st.stage = "Monetize kontrol ediliyor (yeni + reddedilenler)...".into();
+    }
+    let job = crate::ui::MonetizeJob {
+        target_title: None,
+        resubmit_rejected: req.resubmit_rejected,
+        submit_unsubmitted: req.submit_unsubmitted,
+        artist_hint,
+        intro_note: String::new(),
+    };
+    let resp = send_ui(&state, crate::ui::UiEvent::ScStartMonetize(job));
+    if !resp.status().is_success() {
+        let mut st = state.upload_status.write().await;
+        st.active = false;
+        st.stage.clear();
+        st.error = Some("Dahili SoundCloud penceresi hazır değil.".into());
+    }
+    resp
+}
+
+async fn upload_status(State(state): State<Shared>) -> Json<Value> {
+    let st = state.upload_status.read().await.clone();
+    Json(json!(st))
+}
+
+#[derive(Deserialize)]
+struct UploadTrackReq {
+    filename: String,
+    #[serde(default)]
+    title: String,
+    #[serde(default)]
+    sharing: String,
+    #[serde(default)]
+    mode: String,
+}
+
+async fn archive_upload(State(state): State<Shared>, Json(req): Json<UploadTrackReq>) -> Response {
+    if state.upload_status.read().await.active {
+        return json_error(StatusCode::CONFLICT, "Şu anda başka bir yükleme devam ediyor.");
+    }
+    let cfg = state.cfg.read().await.clone();
+    let dir = cfg.target_dir();
+    let Some(path) = safe_join(&dir, req.filename.trim()) else {
+        return json_error(StatusCode::BAD_REQUEST, "Geçersiz dosya adı.");
+    };
+    if !path.is_file() {
+        return json_error(StatusCode::NOT_FOUND, "Ses dosyası bulunamadı.");
+    }
+
+    let meta_entry = state.meta.read().await.get(&req.filename).cloned();
+    let stem = path
+        .file_stem()
+        .map(|s| s.to_string_lossy().to_string())
+        .unwrap_or_default();
+    let title = if req.title.trim().is_empty() {
+        meta_entry
+            .as_ref()
+            .map(|m| m.title.clone())
+            .filter(|t| !t.is_empty())
+            .unwrap_or_else(|| stem.clone())
+    } else {
+        req.title.trim().to_string()
+    };
+
+    // Kapak dosyasını bul: meta.cover → ses yanındaki kapak.
+    let mut cover_path: Option<PathBuf> = None;
+    if let Some(m) = meta_entry.as_ref() {
+        if !m.cover.is_empty() {
+            let p = crate::paths::covers_dir().join(&m.cover);
+            if p.is_file() {
+                cover_path = Some(p);
+            }
+        }
+    }
+    if cover_path.is_none() {
+        for ext in ["jpg", "jpeg", "png"] {
+            let cand = dir.join(format!("{}.{}", stem, ext));
+            if cand.is_file() {
+                cover_path = Some(cand);
+                break;
+            }
+        }
+    }
+
+    let audio_bytes = match tokio::task::spawn_blocking({
+        let p = path.clone();
+        move || std::fs::read(&p)
+    })
+    .await
+    {
+        Ok(Ok(b)) if !b.is_empty() => b,
+        _ => return json_error(StatusCode::INTERNAL_SERVER_ERROR, "Ses dosyası okunamadı."),
+    };
+
+    let cover_bytes = match cover_path {
+        Some(cp) => tokio::task::spawn_blocking(move || std::fs::read(&cp))
+            .await
+            .ok()
+            .and_then(|r| r.ok()),
+        None => None,
+    };
+
+    // Resmi OAuth access_token varsa doğrudan API ile yükle.
+    let mode = if req.mode.trim().is_empty() { "auto" } else { req.mode.trim() };
+    let sharing = if req.sharing == "private" { "private" } else { "public" };
+    let auth = state.auth.read().await.clone();
+    if (mode == "api" || mode == "auto") && !auth.access_token.is_empty() {
+        {
+            let mut st = state.upload_status.write().await;
+            st.active = true;
+            st.ok = false;
+            st.error = None;
+            st.filename = req.filename.clone();
+            st.stage = "SoundCloud API'ye yükleniyor...".into();
+        }
+        let (boundary, body) = build_track_multipart(
+            &title,
+            sharing,
+            &req.filename,
+            &audio_bytes,
+            cover_bytes.as_deref(),
+        );
+        let client = reqwest::Client::new();
+        let res = client
+            .post("https://api.soundcloud.com/tracks")
+            .header("Authorization", format!("OAuth {}", auth.access_token))
+            .header(
+                "Content-Type",
+                format!("multipart/form-data; boundary={}", boundary),
+            )
+            .body(body)
+            .send()
+            .await;
+
+        let mut st = state.upload_status.write().await;
+        st.active = false;
+        match res {
+            Ok(resp) if resp.status().is_success() => {
+                let v: Value = resp.json().await.unwrap_or_default();
+                let link = v.get("permalink_url").and_then(Value::as_str).unwrap_or("");
+                st.ok = true;
+                st.stage = if link.is_empty() {
+                    "✓ SoundCloud'a yüklendi!".into()
+                } else {
+                    format!("✓ Yüklendi: {}", link)
+                };
+                return Json(json!({ "success": true, "mode": "api", "permalink_url": link })).into_response();
+            }
+            Ok(resp) => {
+                let code = resp.status();
+                let err_txt = resp.text().await.unwrap_or_default();
+                let msg = format!("SoundCloud API hatası ({}): {}", code, err_txt.chars().take(180).collect::<String>());
+                st.ok = false;
+                st.error = Some(msg.clone());
+                st.stage.clear();
+                return json_error(StatusCode::BAD_GATEWAY, msg);
+            }
+            Err(e) => {
+                let msg = format!("Ağ hatası: {}", e);
+                st.ok = false;
+                st.error = Some(msg.clone());
+                st.stage.clear();
+                return json_error(StatusCode::BAD_GATEWAY, msg);
+            }
+        }
+    }
+
+    // Varsayılan yol: dahili SoundCloud WebView2 sekmesine dosya + başlık + kapak enjekte et.
+    let audio_b64 = tokio::task::spawn_blocking(move || encode_b64(&audio_bytes))
+        .await
+        .unwrap_or_default();
+    let cover_b64 = match cover_bytes {
+        Some(cb) => tokio::task::spawn_blocking(move || encode_b64(&cb)).await.ok(),
+        None => None,
+    };
+
+    {
+        let mut st = state.upload_status.write().await;
+        st.active = true;
+        st.ok = false;
+        st.error = None;
+        st.filename = req.filename.clone();
+        st.stage = "SoundCloud yükleme sayfası hazırlanıyor...".into();
+    }
+
+    let job = crate::ui::UploadJob {
+        filename: req.filename,
+        title,
+        audio_b64,
+        cover_b64,
+        auto_submit: true,
+        sharing: sharing.to_string(),
+    };
+    let resp = send_ui(&state, crate::ui::UiEvent::ScInjectUpload(job));
+    if !resp.status().is_success() {
+        let mut st = state.upload_status.write().await;
+        st.active = false;
+        st.stage.clear();
+        st.error = Some("Dahili SoundCloud penceresi hazır değil.".into());
+    }
+    resp
+}
+
+fn encode_b64(data: &[u8]) -> String {
+    const T: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    let mut out = String::with_capacity(data.len().div_ceil(3) * 4);
+    for chunk in data.chunks(3) {
+        let b0 = chunk[0];
+        let b1 = *chunk.get(1).unwrap_or(&0);
+        let b2 = *chunk.get(2).unwrap_or(&0);
+        let n = ((b0 as u32) << 16) | ((b1 as u32) << 8) | b2 as u32;
+        out.push(T[(n >> 18) as usize & 63] as char);
+        out.push(T[(n >> 12) as usize & 63] as char);
+        out.push(if chunk.len() > 1 { T[(n >> 6) as usize & 63] as char } else { '=' });
+        out.push(if chunk.len() > 2 { T[n as usize & 63] as char } else { '=' });
+    }
+    out
+}
+
+fn build_track_multipart(
+    title: &str,
+    sharing: &str,
+    filename: &str,
+    audio: &[u8],
+    cover: Option<&[u8]>,
+) -> (String, Vec<u8>) {
+    let boundary = format!("----SCStudioUpload{}", std::process::id());
+    let mut body = Vec::with_capacity(audio.len() + cover.map(|c| c.len()).unwrap_or(0) + 1024);
+
+    let push_text = |buf: &mut Vec<u8>, name: &str, val: &str| {
+        buf.extend_from_slice(
+            format!(
+                "--{boundary}\r\nContent-Disposition: form-data; name=\"{name}\"\r\n\r\n{val}\r\n"
+            )
+            .as_bytes(),
+        );
+    };
+
+    push_text(&mut body, "track[title]", title);
+    push_text(&mut body, "track[sharing]", sharing);
+    push_text(&mut body, "track[genre]", "Phonk");
+
+    let safe_fn = filename.replace('"', "");
+    body.extend_from_slice(
+        format!(
+            "--{boundary}\r\nContent-Disposition: form-data; name=\"track[asset_data]\"; filename=\"{safe_fn}\"\r\nContent-Type: audio/mpeg\r\n\r\n"
+        )
+        .as_bytes(),
+    );
+    body.extend_from_slice(audio);
+    body.extend_from_slice(b"\r\n");
+
+    if let Some(cov) = cover {
+        body.extend_from_slice(
+            format!(
+                "--{boundary}\r\nContent-Disposition: form-data; name=\"track[artwork_data]\"; filename=\"cover.jpg\"\r\nContent-Type: image/jpeg\r\n\r\n"
+            )
+            .as_bytes(),
+        );
+        body.extend_from_slice(cov);
+        body.extend_from_slice(b"\r\n");
+    }
+
+    body.extend_from_slice(format!("--{boundary}--\r\n").as_bytes());
+    (boundary, body)
 }
 
 #[cfg(test)]
@@ -1211,5 +1778,49 @@ mod tests {
         let root = std::env::temp_dir();
         assert!(safe_join(&root, "../x.mp3").is_none());
         assert!(safe_join(&root, r"..\x.mp3").is_none());
+    }
+
+    #[test]
+    fn preview_cache_path_is_deterministic_mp3() {
+        let a = preview_cache_path("https://soundcloud.com/a/b");
+        let b = preview_cache_path("https://soundcloud.com/a/b");
+        let c = preview_cache_path("https://soundcloud.com/a/c");
+        assert_eq!(a, b);
+        assert_ne!(a, c);
+        assert_eq!(a.extension().and_then(|s| s.to_str()), Some("mp3"));
+    }
+
+    #[test]
+    fn temp_part_filter_excludes_only_scs_part_files() {
+        assert!(is_temp_part_name(".scs_9921.part.mp3"));
+        assert!(!is_temp_part_name("track.mp3"));
+        assert!(!is_temp_part_name("part.mp3"));
+    }
+
+    #[test]
+    fn base64_matches_rfc4648_vectors() {
+        assert_eq!(encode_b64(b""), "");
+        assert_eq!(encode_b64(b"f"), "Zg==");
+        assert_eq!(encode_b64(b"fo"), "Zm8=");
+        assert_eq!(encode_b64(b"foo"), "Zm9v");
+        assert_eq!(encode_b64(b"Man"), "TWFu");
+    }
+
+    #[test]
+    fn multipart_contains_title_audio_and_cover() {
+        let (boundary, body) = build_track_multipart("Test Track", "public", "test.mp3", b"MP3DATA", Some(b"JPG"));
+        let txt = String::from_utf8_lossy(&body);
+        assert!(txt.contains("track[title]"));
+        assert!(txt.contains("Test Track"));
+        assert!(txt.contains("track[asset_data]"));
+        assert!(txt.contains("track[artwork_data]"));
+        assert!(txt.ends_with(&format!("--{boundary}--\r\n")));
+    }
+
+    #[test]
+    fn monetize_sweep_defaults_to_both_true() {
+        let req: MonetizeSweepReq = serde_json::from_str("{}").unwrap();
+        assert!(req.resubmit_rejected);
+        assert!(req.submit_unsubmitted);
     }
 }

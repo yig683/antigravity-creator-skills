@@ -77,8 +77,9 @@ fn main() {
     }
 
     let cfg = config::load();
-    // Önceki oturumdan kalan yarım indirme dosyalarını temizle.
+    // Önceki oturumdan kalan yarım indirme ve önizleme dosyalarını temizle.
     let _ = download::cleanup_stale_parts(&cfg.target_dir());
+    paths::cleanup_preview_cache();
 
     let state = match state::AppState::new(cfg) {
         Ok(s) => Arc::new(s),
