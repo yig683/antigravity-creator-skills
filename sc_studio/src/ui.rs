@@ -56,6 +56,10 @@ pub enum UiEvent {
     },
     /// Dahili SoundCloud WebView içinde gezin ("back", "forward", "reload" veya URL).
     ScNavigate(String),
+    /// WebView2 SoundCloud çerezlerini ve tarama verisini temizler (temiz çıkış).
+    ScClearSession,
+    /// Kullanıcı tarafından verilen SoundCloud oauth_token çerezini WebView2'ye yükler.
+    ScSetOauthCookie(String),
     /// Arşivdeki bir MP3 + kapağı doğrudan SoundCloud /upload formuna aktar.
     ScInjectUpload(UploadJob),
     /// Yüklenen veya reddedilen parçalar için artists.soundcloud.com monetize başvurusu başlat.
@@ -110,7 +114,7 @@ const SC_BRIDGE_JS: &str = r##"
         }
       }
       var m = document.cookie.match(/(?:^|;\s*)oauth_token=([^;]+)/);
-      if (!m) return;
+      if (!m) { lastSentKey = ""; window.__scsLiveArtist = ""; return; }
       fetch("https://api-v2.soundcloud.com/me", {
         headers: { Authorization: "OAuth " + decodeURIComponent(m[1]) }
       }).then(function (r) { return r.ok ? r.json() : null; })
@@ -1043,13 +1047,14 @@ fn handle_ipc(state: &crate::state::AppState, page: &str, body: &str) {
         return;
     }
 
+    let browser_is_open = state.browser_open.load(Ordering::Relaxed);
     let should_update = {
         let cur = state.auth.blocking_read();
         let allowed = was_pending
-            || cur.web_session
-            || cur.username.is_empty()
-            || cur.user_id == id;
-        allowed && (was_pending || cur.user_id != id || cur.username != username)
+            || !cur.username.is_empty()
+            || browser_is_open;
+        let can_write = allowed && (was_pending || cur.web_session || cur.username.is_empty() || cur.user_id == id);
+        can_write && (was_pending || cur.user_id != id || cur.username != username)
     };
     if !should_update {
         return;
@@ -1387,8 +1392,39 @@ pub fn run(port: u16, state: Arc<crate::state::AppState>) -> ! {
                 }
             }
 
+            Event::UserEvent(UiEvent::ScClearSession) => {
+                sc_webview = None;
+                sc_visible = false;
+                browser = None;
+                opened_for_login = false;
+                pending_upload = None;
+                pending_monetize = None;
+                state.login_pending.store(false, Ordering::SeqCst);
+                state.browser_open.store(false, Ordering::Relaxed);
+                if let Ok(mut u) = state.browser_url.lock() {
+                    u.clear();
+                }
+                clear_webview_sc_session(&main_webview);
+            }
+
+            Event::UserEvent(UiEvent::ScSetOauthCookie(tok)) => {
+                let _ = set_soundcloud_oauth_cookie(&main_webview, &tok);
+                browser = None;
+                opened_for_login = false;
+                state.login_pending.store(false, Ordering::SeqCst);
+                if let Some(wv) = sc_webview.as_ref() {
+                    let _ = wv.load_url("https://soundcloud.com/discover");
+                }
+            }
+
             Event::UserEvent(UiEvent::OpenBrowser(url)) => {
                 opened_for_login = url.as_deref() == Some(SIGNIN_URL);
+                if opened_for_login && !state.auth.blocking_read().is_signed_in() {
+                    browser = None;
+                    sc_webview = None;
+                    sc_visible = false;
+                    clear_webview_sc_session(&main_webview);
+                }
                 match browser.as_ref() {
                     Some((win, webview)) => {
                         if let Some(u) = url.as_deref() {
@@ -1602,6 +1638,53 @@ fn create_browser_window(
         .ok()?;
 
     Some((window, webview))
+}
+
+fn delete_non_local_cookies(webview: &WebView) {
+    let mut to_delete = Vec::new();
+    if let Ok(all) = webview.cookies() {
+        for c in all {
+            let dom = c.domain().unwrap_or("");
+            if !dom.contains("127.0.0.1") && !dom.eq_ignore_ascii_case("localhost") {
+                to_delete.push(c);
+            }
+        }
+    }
+    for origin in [
+        "https://soundcloud.com",
+        "https://m.soundcloud.com",
+        "https://secure.soundcloud.com",
+        "https://artists.soundcloud.com",
+        "https://api-v2.soundcloud.com",
+        "https://accounts.google.com",
+        "https://appleid.apple.com",
+        "https://www.facebook.com",
+    ] {
+        if let Ok(list) = webview.cookies_for_url(origin) {
+            to_delete.extend(list);
+        }
+    }
+    for c in to_delete {
+        let _ = webview.delete_cookie(&c);
+    }
+}
+
+fn clear_webview_sc_session(webview: &WebView) {
+    delete_non_local_cookies(webview);
+    let _ = webview.clear_all_browsing_data();
+}
+
+fn set_soundcloud_oauth_cookie(webview: &WebView, token: &str) -> wry::Result<()> {
+    delete_non_local_cookies(webview);
+    let cookie = wry::cookie::Cookie::build(("oauth_token", token.to_string()))
+        .domain(".soundcloud.com")
+        .path("/")
+        .secure(true)
+        .http_only(false)
+        .same_site(wry::cookie::SameSite::Lax)
+        .max_age(wry::cookie::time::Duration::days(30))
+        .build();
+    webview.set_cookie(&cookie)
 }
 
 fn initial_window_geometry(

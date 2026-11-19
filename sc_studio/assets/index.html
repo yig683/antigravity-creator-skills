@@ -470,9 +470,16 @@ textarea{resize:vertical;min-height:92px;line-height:1.5;font-size:12px}
     <p class="note" style="margin-top:6px;font-size:10px;color:#50525a">SC Studio bağımsız bir masaüstü uygulamasıdır; SoundCloud ile bağlantılı değildir.</p>
 
     <details class="adv">
-      <summary>Gelişmiş OAuth bilgileri</summary>
+      <summary>Gelişmiş: Chrome oturumu / OAuth</summary>
       <div class="box">
-        <p class="help"><a href="https://soundcloud.com/you/apps" target="_blank">soundcloud.com/you/apps</a> üzerinden aldığın uygulama kimliklerini girebilirsin.</p>
+        <p class="help">Chrome, güvenlik gereği çerezleri şifrelediği için dışarıdan otomatik okunamaz. Çıkış sonrası açılan pencereden yeni hesabına girebilir veya Chrome’da açık hesabı token ile anında bağlayabilirsin:</p>
+        <div><label>Chrome SoundCloud oauth_token</label><input type="password" id="advToken" spellcheck="false" placeholder="oauth_token değeri"></div>
+        <div style="display:flex;gap:6px">
+          <button class="btn sm primary" id="advTokenSave" style="flex:1">Token ile Bağla</button>
+          <button class="btn sm ghost" id="advTokenCopy" title="Chrome F12 Konsol komutunu panoya kopyala">Konsol Kodu Kopyala</button>
+        </div>
+        <hr style="border:none;border-top:1px solid var(--line);margin:2px 0">
+        <p class="help"><a href="https://soundcloud.com/you/apps" target="_blank">soundcloud.com/you/apps</a> üzerinden aldığın OAuth bilgilerini girebilirsin.</p>
         <div><label>Client ID</label><input type="text" id="advId" spellcheck="false"></div>
         <div><label>Client Secret</label><input type="password" id="advSecret" spellcheck="false" placeholder="••••••••"></div>
         <div><label>Yönlendirme adresi</label><input type="text" id="advRedirect" spellcheck="false"></div>
@@ -641,6 +648,7 @@ textarea{resize:vertical;min-height:92px;line-height:1.5;font-size:12px}
                 <option value="recent">En Yeni</option>
               </select>
               <button class="btn sm ghost" id="selectAll">Tümünü Seç</button>
+              <button class="btn sm ghost" id="resetCandsBtn" title="Bulunan parça listesini sıfırla">Sıfırla</button>
               <button class="btn primary sm" id="downloadBtn">İndir</button>
             </div>
           </div>
@@ -665,6 +673,7 @@ textarea{resize:vertical;min-height:92px;line-height:1.5;font-size:12px}
                 <option value="name">Ad (A-Z)</option>
                 <option value="size">Boyut</option>
               </select>
+              <button class="btn ghost" id="clearArchiveBtn" title="Arşivdeki tüm indirilen parçaları sil">Arşivi Temizle</button>
               <div class="filter-anchor">
                 <button class="btn" id="libMoreBtn" title="Arşiv araçları">İşlemler ▾</button>
                 <div class="popover hidden" id="libMenu" style="width:236px;padding:6px">
@@ -976,6 +985,7 @@ function switchTab(tab) {
     $("view-" + t).classList.toggle("hidden", t !== tab);
   });
   if (tab === "settings") refreshDiagnostics();
+  refreshAuth();
   syncScWebviewBounds();
 }
 
@@ -1461,11 +1471,22 @@ function renderScanSkeleton(n) {
 
 const scoreClass = (s) => (s >= 80 ? "" : s >= 60 ? "mid" : "low");
 
+function resetPlayerUi(kindFilter) {
+  if (kindFilter && state.player.kind !== kindFilter) return;
+  $("audio").pause(); $("audio").removeAttribute("src"); $("audio").load();
+  state.player.kind = ""; state.player.key = "";
+  $("pTitle").textContent = "Çalınan parça yok";
+  $("pSub").textContent = "Arşivden veya Keşfet'ten başlatın";
+  $("pThumb").src = "/static/icon.png";
+  syncPlayerUi();
+}
+
 function updateDownloadBtn() {
   const n = state.candView.filter((c) => state.selectedUrls.has(c.url)).length;
   $("downloadBtn").textContent = n ? "İndir (" + n + ")" : "İndir";
   $("downloadBtn").disabled = state.downloading || n === 0;
   $("selectAll").textContent = state.candView.length && n === state.candView.length ? "Seçimi Kaldır" : "Tümünü Seç";
+  if ($("resetCandsBtn")) $("resetCandsBtn").disabled = state.scanning || state.downloading;
 }
 
 function renderCandidates() {
@@ -1580,6 +1601,7 @@ function renderTracks() {
   state.view = list;
   $("navTrackCount").textContent = String(state.tracks.length);
   $("libSubtitle").textContent = q ? (list.length + " / " + state.tracks.length + " parça") : (state.tracks.length + " parça");
+  if ($("clearArchiveBtn")) $("clearArchiveBtn").disabled = !state.tracks.length || state.downloading || state.uploading;
 
   if (!state.tracks.length) {
     $("trackList").innerHTML = '<div class="empty-clean"><h3>Arşiv boş</h3><p>Keşfet sekmesinden seçip indirdiğin tüm MP3 ve kapaklar burada listelenir.</p></div>';
@@ -1652,14 +1674,7 @@ function renderTracks() {
       if (ok) {
         try {
           await post("/api/archive/delete", { filename: t.name });
-          if (state.player.kind === "track" && state.player.key === t.name) {
-            $("audio").pause(); $("audio").removeAttribute("src"); $("audio").load();
-            state.player.kind = ""; state.player.key = "";
-            $("pTitle").textContent = "Çalınan parça yok";
-            $("pSub").textContent = "Arşivden veya Keşfet'ten başlatın";
-            $("pThumb").src = "/static/icon.png";
-            syncPlayerUi();
-          }
+          if (state.player.kind === "track" && state.player.key === t.name) resetPlayerUi("track");
           toast("Silindi.", "ok");
           await refreshTracks(true);
         } catch (e) { toast(e.message, "err"); }
@@ -1970,6 +1985,28 @@ $("signInBtn").onclick = signIn;
 $("guestBtn").onclick = completeOnboarding;
 $("loginCloseBtn").onclick = hideLogin;
 
+$("advTokenCopy").onclick = async () => {
+  const snip = "copy((document.cookie.match(/(?:^|;\\s*)oauth_token=([^;]+)/)||[])[1]||'') ; 'oauth_token kopyalandı!'";
+  try {
+    await navigator.clipboard.writeText(snip);
+    toast("Kod kopyalandı: Chrome'da SoundCloud açıkken F12 -> Console'a yapıştır.", "ok");
+  } catch (_) {
+    prompt("Chrome'da F12 -> Console'a bu kodu yapıştır:", snip);
+  }
+};
+
+$("advTokenSave").onclick = async () => {
+  const token = $("advToken").value.trim();
+  if (!token) { toast("oauth_token yapıştırın.", "err"); return; }
+  try {
+    const res = await post("/api/auth/token-login", { token });
+    $("advToken").value = "";
+    await refreshAuth();
+    toast("Hoş geldin " + (res.username || "Hesap") + "!", "ok");
+    await completeOnboarding();
+  } catch (e) { toast(e.message, "err"); }
+};
+
 $("advSave").onclick = async () => {
   const id = $("advId").value.trim(), secret = $("advSecret").value.trim(), redirect = $("advRedirect").value.trim();
   if (!id || !redirect) { toast("Client ID ve yönlendirme adresi gerekli.", "err"); return; }
@@ -1989,7 +2026,13 @@ $("accountBtn").onclick = async () => {
       body: '<b>' + esc(state.auth.username) + '</b> oturumu kapatılacak. Yerel arşivin korunur.',
       okText: "Çıkış Yap", danger: true
     });
-    if (ok) { await post("/api/auth/logout"); await refreshAuth(); toast("Çıkış yapıldı."); }
+    if (ok) {
+      await post("/api/auth/logout");
+      await refreshAuth();
+      applyUploadStatus({ active: false, ok: false, stage: "", error: null });
+      if (state.activeTab === "soundcloud") switchTab("discover");
+      toast("Çıkış yapıldı. İstediğin hesapla giriş yapabilirsin.");
+    }
   } else showLogin(true);
 };
 
@@ -2010,6 +2053,41 @@ $("selectAll").onclick = () => {
   if (!all) state.candView.forEach((c) => state.selectedUrls.add(c.url));
   renderCandidates();
 };
+$("resetCandsBtn").onclick = async () => {
+  if (state.scanning || state.downloading) { toast("Aktif işlem bitene kadar bekleyin.", "err"); return; }
+  try {
+    await post("/api/curator/clear");
+    state.completedUrls.clear();
+    state.failedUrls.clear();
+    state.selectedUrls.clear();
+    state.autoUncheckedUrls.clear();
+    state.lastCandJson = "";
+    state.lastCandSig = "";
+    resetPlayerUi("preview");
+    await refreshStatus(true);
+    toast("Bulunan parçalar sıfırlandı.", "ok");
+  } catch (e) { toast(e.message, "err"); }
+};
+
+$("clearArchiveBtn").onclick = async () => {
+  if (!state.tracks.length) return;
+  if (state.downloading || state.uploading) { toast("Aktif indirme veya yükleme varken temizlenemez.", "err"); return; }
+  const ok = await showConfirm({
+    title: "Arşivi Temizle",
+    body: "Arşivdeki <b>" + state.tracks.length + "</b> indirilen parça, kapak görseli ve metadata kalıcı olarak silinecek.",
+    okText: "Arşivi Temizle",
+    danger: true
+  });
+  if (!ok) return;
+  try {
+    const res = await post("/api/archive/clear");
+    resetPlayerUi("track");
+    state.lastTrackJson = "";
+    await refreshTracks(true);
+    toast("Arşiv temizlendi (" + (res.removed || 0) + " parça silindi).", "ok");
+  } catch (e) { toast(e.message, "err"); }
+};
+
 $("downloadBtn").onclick = () => {
   downloadItems(state.candView.filter((c) => state.selectedUrls.has(c.url))
     .map((c) => ({ url: c.url, title: c.title, thumbnail: c.thumbnail })));

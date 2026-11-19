@@ -39,6 +39,7 @@ pub fn router(state: Shared) -> Router {
         .route("/api/auth/manual", post(auth_manual))
         .route("/api/auth/logout", post(auth_logout))
         .route("/api/auth/web-login", post(auth_web_login))
+        .route("/api/auth/token-login", post(auth_token_login))
         .route("/api/onboarding/complete", post(onboarding_complete))
         .route("/api/browser/open", post(browser_open))
         .route("/api/browser/url", get(browser_url))
@@ -47,6 +48,7 @@ pub fn router(state: Shared) -> Router {
         .route("/api/archive/upload", post(archive_upload))
         .route("/api/upload/status", get(upload_status))
         .route("/api/curator/reset-memory", post(reset_memory))
+        .route("/api/curator/clear", post(clear_candidates))
         .route("/api/curator/scan", post(start_scan))
         .route("/api/curator/cancel", post(cancel_curator))
         .route("/api/curator/preview", get(curator_preview))
@@ -54,6 +56,7 @@ pub fn router(state: Shared) -> Router {
         .route("/api/trends/status", get(trends_status))
         .route("/api/archive/cover/{name}", get(archive_cover))
         .route("/api/archive/delete", post(delete_archive))
+        .route("/api/archive/clear", post(clear_archive))
         .route("/api/my-tracks", get(my_tracks))
         .route("/api/my-tracks/regenerate", post(regenerate))
         .route("/api/my-tracks/set-folder", post(set_folder))
@@ -472,6 +475,34 @@ async fn reset_memory(State(state): State<Shared>) -> Response {
     Json(json!({ "success": true, "seen_count": count })).into_response()
 }
 
+fn clear_curator_candidates(c: &mut crate::state::CuratorStatus) -> usize {
+    let cleared = c.candidates.len();
+    c.candidates.clear();
+    c.completed_urls.clear();
+    c.failed_urls.clear();
+    c.error = None;
+    c.progress = 0.0;
+    c.current.clear();
+    c.current_url.clear();
+    c.stage.clear();
+    c.batch_index = 0;
+    c.batch_total = 0;
+    c.log = "Bulunan parçalar sıfırlandı.".into();
+    cleared
+}
+
+async fn clear_candidates(State(state): State<Shared>) -> Response {
+    let mut c = state.curator.write().await;
+    if c.scanning || c.downloading {
+        return json_error(
+            StatusCode::CONFLICT,
+            "Aktif tarama veya indirme sürerken liste sıfırlanamaz.",
+        );
+    }
+    let cleared = clear_curator_candidates(&mut c);
+    Json(json!({ "success": true, "cleared": cleared })).into_response()
+}
+
 #[derive(Deserialize)]
 struct ScanReq {
     #[serde(default = "default_source")]
@@ -844,6 +875,80 @@ async fn delete_archive(State(state): State<Shared>, Json(req): Json<DeleteReq>)
         save_meta(&meta);
     }
 
+    Json(json!({ "success": true, "removed": removed })).into_response()
+}
+
+fn clear_archive_dir(
+    dir: &Path,
+    covers_dir: &Path,
+    meta: &mut std::collections::HashMap<String, TrackMeta>,
+) -> usize {
+    let mut removed_tracks = 0usize;
+    if let Ok(entries) = std::fs::read_dir(dir) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if !path.is_file() {
+                continue;
+            }
+            if path
+                .file_name()
+                .and_then(|s| s.to_str())
+                .map(is_temp_part_name)
+                .unwrap_or(false)
+            {
+                continue;
+            }
+            let ext = path
+                .extension()
+                .and_then(|s| s.to_str())
+                .map(|s| s.to_ascii_lowercase())
+                .unwrap_or_default();
+            if AUDIO_EXTS.contains(&ext.as_str()) {
+                let stem = path
+                    .file_stem()
+                    .map(|s| s.to_string_lossy().to_string())
+                    .unwrap_or_default();
+                if std::fs::remove_file(&path).is_ok() {
+                    removed_tracks += 1;
+                }
+                for img_ext in ["jpg", "jpeg", "png"] {
+                    let sidecar = dir.join(format!("{stem}.{img_ext}"));
+                    if sidecar.is_file() {
+                        let _ = std::fs::remove_file(&sidecar);
+                    }
+                }
+            }
+        }
+    }
+    let _ = crate::download::cleanup_stale_parts(dir);
+    for entry in meta.values() {
+        if !entry.cover.is_empty() {
+            let cov = covers_dir.join(&entry.cover);
+            if cov.is_file() {
+                let _ = std::fs::remove_file(cov);
+            }
+        }
+    }
+    meta.clear();
+    removed_tracks
+}
+
+async fn clear_archive(State(state): State<Shared>) -> Response {
+    if state.curator.read().await.downloading || state.upload_status.read().await.active {
+        return json_error(
+            StatusCode::CONFLICT,
+            "Aktif indirme veya yükleme sürerken arşiv temizlenemez.",
+        );
+    }
+    let dir = state.cfg.read().await.target_dir();
+    let covers_dir = crate::paths::covers_dir();
+    let removed = {
+        let mut meta = state.meta.write().await;
+        let count = clear_archive_dir(&dir, &covers_dir, &mut meta);
+        save_meta(&meta);
+        count
+    };
+    crate::paths::cleanup_preview_cache();
     Json(json!({ "success": true, "removed": removed })).into_response()
 }
 
@@ -1285,7 +1390,87 @@ async fn auth_logout(State(state): State<Shared>) -> Response {
         .login_pending
         .store(false, std::sync::atomic::Ordering::SeqCst);
     *state.auth.write().await = Default::default();
+    let _ = send_ui(&state, crate::ui::UiEvent::ScClearSession);
     Json(json!({ "success": true })).into_response()
+}
+
+#[derive(Deserialize)]
+struct TokenLoginReq {
+    token: String,
+}
+
+fn normalize_oauth_cookie_token(raw: &str) -> String {
+    let mut s = raw.trim().trim_matches('"').trim_matches('\'').trim();
+    if let Some(rest) = s.strip_prefix("oauth_token=") {
+        s = rest.trim();
+    }
+    if let Some(rest) = s.strip_prefix("OAuth ").or_else(|| s.strip_prefix("oauth ")) {
+        s = rest.trim();
+    }
+    if let Some((head, _)) = s.split_once(';') {
+        s = head.trim();
+    }
+    s.to_string()
+}
+
+async fn auth_token_login(State(state): State<Shared>, Json(req): Json<TokenLoginReq>) -> Response {
+    let token = normalize_oauth_cookie_token(&req.token);
+    if token.len() < 12 {
+        return json_error(StatusCode::BAD_REQUEST, "Geçerli bir SoundCloud oauth_token girin.");
+    }
+    let client = match reqwest::Client::builder()
+        .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/130.0.0.0 Safari/537.36")
+        .build()
+    {
+        Ok(c) => c,
+        Err(e) => return json_error(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()),
+    };
+    let resp = match client
+        .get("https://api-v2.soundcloud.com/me")
+        .header(reqwest::header::AUTHORIZATION, format!("OAuth {token}"))
+        .send()
+        .await
+    {
+        Ok(r) => r,
+        Err(e) => return json_error(StatusCode::BAD_GATEWAY, format!("SoundCloud bağlantı hatası: {e}")),
+    };
+    if !resp.status().is_success() {
+        return json_error(StatusCode::UNAUTHORIZED, "Token geçersiz veya süresi dolmuş.");
+    }
+    let Ok(me) = resp.json::<Value>().await else {
+        return json_error(StatusCode::BAD_GATEWAY, "SoundCloud profil yanıtı okunamadı.");
+    };
+    let id = me
+        .get("id")
+        .and_then(|v| v.as_u64().map(|n| n.to_string()).or_else(|| v.as_str().map(str::to_string)))
+        .unwrap_or_default();
+    let username = me
+        .get("username")
+        .and_then(|v| v.as_str())
+        .or_else(|| me.get("full_name").and_then(|v| v.as_str()))
+        .unwrap_or("")
+        .trim()
+        .to_string();
+    if id.is_empty() || username.is_empty() {
+        return json_error(StatusCode::BAD_GATEWAY, "SoundCloud kullanıcı adı alınamadı.");
+    }
+
+    let auth = crate::auth::AuthState {
+        user_id: id,
+        username: username.clone(),
+        avatar_url: me.get("avatar_url").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+        permalink_url: me.get("permalink_url").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+        web_session: true,
+        ..Default::default()
+    };
+    let _ = crate::auth::save(&auth);
+    *state.auth.write().await = auth;
+    state
+        .login_pending
+        .store(false, std::sync::atomic::Ordering::SeqCst);
+    let _ = send_ui(&state, crate::ui::UiEvent::ScSetOauthCookie(token));
+
+    Json(json!({ "success": true, "username": username })).into_response()
 }
 
 fn open_in_browser(url: &str) {
@@ -1822,5 +2007,77 @@ mod tests {
         let req: MonetizeSweepReq = serde_json::from_str("{}").unwrap();
         assert!(req.resubmit_rejected);
         assert!(req.submit_unsubmitted);
+    }
+
+    #[test]
+    fn clear_curator_candidates_empties_state() {
+        let mut st = crate::state::CuratorStatus {
+            candidates: vec![crate::state::Candidate {
+                id: "1".into(),
+                title: "Test".into(),
+                uploader: "ZYRO".into(),
+                url: "https://soundcloud.com/zyro/test".into(),
+                thumbnail: String::new(),
+                duration_str: "1:30".into(),
+                date_str: "1d".into(),
+                days_ago: 1.0,
+                views: 100,
+                likes: 10,
+                score: 90,
+                reasons: vec![],
+            }],
+            completed_urls: vec!["https://soundcloud.com/zyro/test".into()],
+            failed_urls: vec!["https://soundcloud.com/zyro/fail".into()],
+            progress: 0.5,
+            error: Some("err".into()),
+            ..Default::default()
+        };
+        let cleared = clear_curator_candidates(&mut st);
+        assert_eq!(cleared, 1);
+        assert!(st.candidates.is_empty());
+        assert!(st.completed_urls.is_empty());
+        assert!(st.failed_urls.is_empty());
+        assert!(st.error.is_none());
+        assert_eq!(st.progress, 0.0);
+    }
+
+    #[test]
+    fn clear_archive_dir_deletes_audio_sidecars_and_meta() {
+        let base = std::env::temp_dir().join(format!("scs_clear_test_{}", std::process::id()));
+        let covers = base.join("covers");
+        let _ = std::fs::remove_dir_all(&base);
+        std::fs::create_dir_all(&covers).unwrap();
+
+        std::fs::write(base.join("track1.mp3"), b"mp3").unwrap();
+        std::fs::write(base.join("track1.jpg"), b"jpg").unwrap();
+        std::fs::write(base.join(".scs_1.part.mp3"), b"part").unwrap();
+        std::fs::write(base.join("keep_notes.txt"), b"txt").unwrap();
+        std::fs::write(covers.join("cov1.jpg"), b"cov").unwrap();
+
+        let mut meta = std::collections::HashMap::new();
+        meta.insert(
+            "track1.mp3".to_string(),
+            TrackMeta {
+                title: "Track 1".into(),
+                cover: "cov1.jpg".into(),
+            },
+        );
+
+        let removed = clear_archive_dir(&base, &covers, &mut meta);
+        assert_eq!(removed, 1);
+        assert!(meta.is_empty());
+        assert!(!base.join("track1.mp3").exists());
+        assert!(!base.join("track1.jpg").exists());
+        assert!(!base.join(".scs_1.part.mp3").exists());
+        assert!(!covers.join("cov1.jpg").exists());
+        assert!(base.join("keep_notes.txt").exists());
+        let _ = std::fs::remove_dir_all(&base);
+    }
+
+    #[test]
+    fn normalize_oauth_cookie_token_strips_prefixes() {
+        assert_eq!(normalize_oauth_cookie_token("2-123456-7890-abcdef"), "2-123456-7890-abcdef");
+        assert_eq!(normalize_oauth_cookie_token("  \"oauth_token=2-123456-7890-abcdef; path=/\"  "), "2-123456-7890-abcdef");
+        assert_eq!(normalize_oauth_cookie_token("OAuth 2-123456-7890-abcdef"), "2-123456-7890-abcdef");
     }
 }
