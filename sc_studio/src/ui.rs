@@ -28,6 +28,7 @@ pub struct UploadJob {
     pub cover_b64: Option<String>,
     pub auto_submit: bool,
     pub sharing: String,
+    pub skip_monetize: bool,
 }
 
 /// SoundCloud for Artists Monetization otomasyonu için iş tanımı.
@@ -62,6 +63,8 @@ pub enum UiEvent {
     ScSetOauthCookie(String),
     /// Arşivdeki bir MP3 + kapağı doğrudan SoundCloud /upload formuna aktar.
     ScInjectUpload(UploadJob),
+    /// Aktif yükleme/monetize otomasyonunu iptal eder.
+    ScCancelUpload,
     /// Yüklenen veya reddedilen parçalar için artists.soundcloud.com monetize başvurusu başlat.
     ScStartMonetize(MonetizeJob),
     /// Tarayıcıda giriş yapılan hesap alındı; pencere giriş için açıldıysa kapat.
@@ -358,7 +361,7 @@ const SC_BRIDGE_JS: &str = r##"
     window.__scsChunks = [];
   };
   window.__scsAppendAudio = function (c) { window.__scsChunks.push(c); };
-  window.__scsCommitUpload = function (filename, title, coverB64, autoSubmit, sharing) {
+  window.__scsCommitUpload = function (filename, title, coverB64, autoSubmit, sharing, skipMonetize) {
     if (window.__scsUploadTimer) { clearInterval(window.__scsUploadTimer); window.__scsUploadTimer = null; }
     var audioB64 = window.__scsChunks.join("");
     window.__scsChunks = [];
@@ -390,6 +393,10 @@ const SC_BRIDGE_JS: &str = r##"
       if (window.__scsUploadTimer) {
         clearInterval(window.__scsUploadTimer);
         window.__scsUploadTimer = null;
+      }
+      if (skipMonetize) {
+        postUp(note ? ("✓ " + note) : "✓ Yüklendi & Amplify yapıldı", false, true, null);
+        return;
       }
       try {
         window.ipc.postMessage(JSON.stringify({
@@ -1369,6 +1376,19 @@ pub fn run(port: u16, state: Arc<crate::state::AppState>) -> ! {
                 }
             }
 
+            Event::UserEvent(UiEvent::ScCancelUpload) => {
+                pending_upload = None;
+                pending_monetize = None;
+                if let Some(wv) = sc_webview.as_ref() {
+                    let _ = wv.evaluate_script(
+                        "window.__scsResetUpload && window.__scsResetUpload(); if (window.__scsMonetizeTimer) { clearInterval(window.__scsMonetizeTimer); window.__scsMonetizeTimer = null; }",
+                    );
+                    if wv.url().map(|u| u.starts_with(UPLOAD_URL)).unwrap_or(false) {
+                        let _ = wv.load_url("https://soundcloud.com/discover");
+                    }
+                }
+            }
+
             Event::UserEvent(UiEvent::ScStartMonetize(mjob)) => {
                 pending_upload = None;
                 monetize_seq += 1;
@@ -1575,8 +1595,9 @@ fn inject_upload_job(webview: &WebView, job: &UploadJob) {
     };
     let auto_js = if job.auto_submit { "true" } else { "false" };
     let sharing_js = serde_json::to_string(&job.sharing).unwrap_or_else(|_| "\"public\"".into());
+    let skip_mon_js = if job.skip_monetize { "true" } else { "false" };
     let commit = format!(
-        "window.__scsCommitUpload && window.__scsCommitUpload({fn_js}, {title_js}, {cover_js}, {auto_js}, {sharing_js})"
+        "window.__scsCommitUpload && window.__scsCommitUpload({fn_js}, {title_js}, {cover_js}, {auto_js}, {sharing_js}, {skip_mon_js})"
     );
     let _ = webview.evaluate_script(&commit);
 }

@@ -47,6 +47,7 @@ pub fn router(state: Shared) -> Router {
         .route("/api/soundcloud/monetize-sweep", post(sc_monetize_sweep))
         .route("/api/archive/upload", post(archive_upload))
         .route("/api/upload/status", get(upload_status))
+        .route("/api/upload/cancel", post(cancel_upload))
         .route("/api/curator/reset-memory", post(reset_memory))
         .route("/api/curator/clear", post(clear_candidates))
         .route("/api/curator/scan", post(start_scan))
@@ -1703,6 +1704,18 @@ async fn upload_status(State(state): State<Shared>) -> Json<Value> {
     Json(json!(st))
 }
 
+async fn cancel_upload(State(state): State<Shared>) -> Response {
+    {
+        let mut st = state.upload_status.write().await;
+        st.active = false;
+        st.ok = false;
+        st.error = None;
+        st.stage = "Yükleme durduruldu.".into();
+    }
+    let _ = send_ui(&state, crate::ui::UiEvent::ScCancelUpload);
+    Json(json!({ "success": true })).into_response()
+}
+
 #[derive(Deserialize)]
 struct UploadTrackReq {
     filename: String,
@@ -1712,6 +1725,8 @@ struct UploadTrackReq {
     sharing: String,
     #[serde(default)]
     mode: String,
+    #[serde(default)]
+    skip_monetize: bool,
 }
 
 async fn archive_upload(State(state): State<Shared>, Json(req): Json<UploadTrackReq>) -> Response {
@@ -1870,6 +1885,7 @@ async fn archive_upload(State(state): State<Shared>, Json(req): Json<UploadTrack
         cover_b64,
         auto_submit: true,
         sharing: sharing.to_string(),
+        skip_monetize: req.skip_monetize,
     };
     let resp = send_ui(&state, crate::ui::UiEvent::ScInjectUpload(job));
     if !resp.status().is_success() {
@@ -2079,5 +2095,13 @@ mod tests {
         assert_eq!(normalize_oauth_cookie_token("2-123456-7890-abcdef"), "2-123456-7890-abcdef");
         assert_eq!(normalize_oauth_cookie_token("  \"oauth_token=2-123456-7890-abcdef; path=/\"  "), "2-123456-7890-abcdef");
         assert_eq!(normalize_oauth_cookie_token("OAuth 2-123456-7890-abcdef"), "2-123456-7890-abcdef");
+    }
+
+    #[test]
+    fn upload_track_req_defaults_skip_monetize_false() {
+        let req: UploadTrackReq = serde_json::from_str(r#"{"filename":"x.mp3"}"#).unwrap();
+        assert!(!req.skip_monetize);
+        let bulk: UploadTrackReq = serde_json::from_str(r#"{"filename":"x.mp3","skip_monetize":true}"#).unwrap();
+        assert!(bulk.skip_monetize);
     }
 }
