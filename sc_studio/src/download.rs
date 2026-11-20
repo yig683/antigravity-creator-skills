@@ -327,12 +327,13 @@ pub async fn download_one(state: &Arc<AppState>, item: &DownloadItem, index: usi
     let cover_name = cover_filename(&final_name);
     let cover_path = crate::paths::covers_dir().join(&cover_name);
 
+    let cover_style = crate::artwork::CoverStyle::parse(&state.cfg.read().await.cover_style);
     let pool_state = Arc::clone(state);
     let cover_target = cover_path.clone();
     let cover_ok = tokio::task::spawn_blocking(move || {
         let mut pool = pool_state.art.lock().unwrap();
         let mut rng = pool_state.rng.lock().unwrap();
-        crate::artwork::make_cover(&mut pool, &mut rng, &cover_target)
+        crate::artwork::make_cover(&mut pool, &mut rng, &cover_target, cover_style)
     })
     .await
     .unwrap_or_else(|e| Err(anyhow!("kapak görevi çöktü: {}", e)));

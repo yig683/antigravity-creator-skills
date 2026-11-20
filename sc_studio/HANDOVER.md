@@ -94,7 +94,10 @@ cp target/release/soundcloud-studio.exe dist/SoundCloudStudio.exe
 │  score.rs 252 puanlama (ağırlıklar birebir)   │
 │  titles.rs 227 akıllı başlık (regex sırası)   │
 │  ui.rs   171  pencere + tarayıcı penceresi    │
-│  artwork.rs 168 kapak havuzu + 800×800        │
+│  artwork.rs    kapak havuzu: kayan pencere +  │
+│                ikiz görseller + 800×800       │
+│  coverfx.rs    kapak çeşitlendirme (kırpma,   │
+│                renk tonu, tane; `cover_style`)│
 │  id3.rs  162  elle yazılmış ID3v2.3           │
 │  config.rs 166 ayarlar (atomik yazma)         │
 │  main.rs 160  bootstrap + sunucu thread'i     │
@@ -176,8 +179,9 @@ Program Files'ta kırılıyordu; `paths.rs` bunu garanti eder.)
 
 1. **Kapak havuzu telif riski (SATIŞTAN ÖNCE ÇÖZÜLMELİ).** `assets/artwork_pool`
    içinde 208 gerçek SoundCloud kapağı var (27 MB). Bunlar başka kullanıcıların
-   yüklediği görseller; ticari üründe dağıtmak telif ihlali. Plan: prosedürel
-   kapak üreteci + kullanıcı klasörü; havuzu ücretli sürümden çıkar.
+   yüklediği görseller; ticari üründe dağıtmak telif ihlali. Plan: kullanıcı
+   klasörü + uygun görselleri dış kaynaktan bulup çekme (prosedürel üreteç
+   tercih edilmiyor, bkz. §12.2); havuzu ücretli sürümden çıkar.
 2. **Lisans/deneme sistemi yok.** Satış modeli kararlaştırıldı (aylık üyelik,
    ~$2.99/ay veya $19.99/yıl, LemonSqueezy/Paddle üzerinden) ama kod yazılmadı.
 3. **İmzasız exe** → SmartScreen uyarısı. Kod imzası sertifikası gerekli.
@@ -270,9 +274,12 @@ Program Files'ta kırılıyordu; `paths.rs` bunu garanti eder.)
 
 1. **Lisans + 14 gün deneme** — LemonSqueezy license API, cihaz aktivasyonu,
    72 saat önbellek + 7 gün çevrimdışı tolerans. *Satış için ön koşul.*
-2. **Prosedürel kapak üreteci** — gradient mesh + grain + tipografi; telif
-   sorununu çözer, "AI kapak" olarak pazarlanabilir. Kullanıcı seçsin:
-   prosedürel / kendi klasörü / karışık.
+2. **Kapak kaynağı (ertelendi).** Kullanıcı 21 Kasım 2026'da prosedürel
+   üreteci **istemediğini** söyledi; tercihi uygun görselleri bir yerlerden
+   bulup çekmek ("şimdi değil"). Kaynak, filtre ve telif kararları kullanıcıyla
+   netleşmeden başlanmaz. Bu arada kapak tekrarı `cover_style` ayarı
+   (Özgün / Çeşitli / Cesur), kayan pencere seçimi ve ikiz görsel listesiyle
+   azaltıldı (`artwork.rs`, `coverfx.rs`).
 3. **Zamanlanmış otomatik tarama + kuyruk** (duraklat/devam/yeniden dene) —
    abonelikte "sürekli değer" üreten kısım.
 4. **Kütüphane:** arama, etiket, M3U/Rekordbox dışa aktarma.

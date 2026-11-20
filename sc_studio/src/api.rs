@@ -40,6 +40,9 @@ pub fn router(state: Shared) -> Router {
         .route("/api/auth/logout", post(auth_logout))
         .route("/api/auth/web-login", post(auth_web_login))
         .route("/api/auth/token-login", post(auth_token_login))
+        .route("/api/accounts", get(accounts_list))
+        .route("/api/accounts/switch", post(accounts_switch))
+        .route("/api/accounts/remove", post(accounts_remove))
         .route("/api/onboarding/complete", post(onboarding_complete))
         .route("/api/browser/open", post(browser_open))
         .route("/api/browser/url", get(browser_url))
@@ -460,6 +463,11 @@ fn merge_config(cfg: &mut Config, patch: &Value) {
     }
     if let Some(v) = obj.get("cand_sort").and_then(Value::as_str) {
         cfg.cand_sort = v.to_string();
+    }
+    if let Some(v) = obj.get("cover_style").and_then(Value::as_str) {
+        if matches!(v, "original" | "varied" | "bold") {
+            cfg.cover_style = v.to_string();
+        }
     }
 }
 
@@ -1177,12 +1185,13 @@ async fn regenerate_one(
     let cover_name = download::cover_filename(&new_filename);
     let cover_path = crate::paths::covers_dir().join(&cover_name);
 
+    let cover_style = crate::artwork::CoverStyle::parse(&state.cfg.read().await.cover_style);
     let pool_state = Arc::clone(state);
     let cover_target = cover_path.clone();
     let cover_res = tokio::task::spawn_blocking(move || {
         let mut pool = pool_state.art.lock().unwrap();
         let mut rng = pool_state.rng.lock().unwrap();
-        crate::artwork::make_cover(&mut pool, &mut rng, &cover_target)
+        crate::artwork::make_cover(&mut pool, &mut rng, &cover_target, cover_style)
     })
     .await
     .unwrap_or_else(|e| Err(anyhow::anyhow!("kapak görevi çöktü: {}", e)));
@@ -1465,6 +1474,16 @@ async fn auth_token_login(State(state): State<Shared>, Json(req): Json<TokenLogi
         ..Default::default()
     };
     let _ = crate::auth::save(&auth);
+    crate::accounts::upsert(
+        crate::accounts::AccountEntry {
+            user_id: auth.user_id.clone(),
+            username: auth.username.clone(),
+            avatar_url: auth.avatar_url.clone(),
+            permalink_url: auth.permalink_url.clone(),
+            token_enc: String::new(),
+        },
+        &token,
+    );
     *state.auth.write().await = auth;
     state
         .login_pending
@@ -1472,6 +1491,49 @@ async fn auth_token_login(State(state): State<Shared>, Json(req): Json<TokenLogi
     let _ = send_ui(&state, crate::ui::UiEvent::ScSetOauthCookie(token));
 
     Json(json!({ "success": true, "username": username })).into_response()
+}
+
+async fn accounts_list(State(state): State<Shared>) -> Json<Value> {
+    let active = state.auth.read().await.user_id.clone();
+    let list: Vec<Value> = crate::accounts::load()
+        .into_iter()
+        .map(|a| {
+            json!({
+                "user_id": a.user_id,
+                "username": a.username,
+                "avatar_url": a.avatar_url,
+                "active": !active.is_empty() && a.user_id == active,
+            })
+        })
+        .collect();
+    Json(json!({ "accounts": list }))
+}
+
+#[derive(Deserialize)]
+struct AccountIdReq {
+    user_id: String,
+}
+
+async fn accounts_switch(State(state): State<Shared>, Json(req): Json<AccountIdReq>) -> Response {
+    if state.upload_status.read().await.active {
+        return json_error(StatusCode::CONFLICT, "Yükleme sürerken hesap değiştirilemez.");
+    }
+    let Some(token) = crate::accounts::token_for(&req.user_id) else {
+        return json_error(StatusCode::NOT_FOUND, "Bu hesabın kayıtlı token'ı yok. Hesabı yeniden ekle.");
+    };
+    let resp = auth_token_login(State(state), Json(TokenLoginReq { token })).await;
+    if resp.status() == StatusCode::UNAUTHORIZED {
+        return json_error(
+            StatusCode::UNAUTHORIZED,
+            "Bu hesabın token'ının süresi dolmuş. 'Hesap ekle' ile yeni token gir.",
+        );
+    }
+    resp
+}
+
+async fn accounts_remove(Json(req): Json<AccountIdReq>) -> Json<Value> {
+    crate::accounts::remove(&req.user_id);
+    Json(json!({ "success": true }))
 }
 
 fn open_in_browser(url: &str) {
@@ -2095,6 +2157,20 @@ mod tests {
         assert_eq!(normalize_oauth_cookie_token("2-123456-7890-abcdef"), "2-123456-7890-abcdef");
         assert_eq!(normalize_oauth_cookie_token("  \"oauth_token=2-123456-7890-abcdef; path=/\"  "), "2-123456-7890-abcdef");
         assert_eq!(normalize_oauth_cookie_token("OAuth 2-123456-7890-abcdef"), "2-123456-7890-abcdef");
+    }
+
+    #[test]
+    fn merge_config_accepts_only_known_cover_styles() {
+        let mut cfg = Config::default();
+        assert_eq!(cfg.cover_style, "varied");
+        merge_config(&mut cfg, &json!({ "cover_style": "bold" }));
+        assert_eq!(cfg.cover_style, "bold");
+        merge_config(&mut cfg, &json!({ "cover_style": "nonsense" }));
+        assert_eq!(cfg.cover_style, "bold");
+        merge_config(&mut cfg, &json!({ "cover_style": "original" }));
+        assert_eq!(cfg.cover_style, "original");
+        cfg.cover_style = "???".into();
+        assert_eq!(cfg.sanitized().cover_style, "varied");
     }
 
     #[test]

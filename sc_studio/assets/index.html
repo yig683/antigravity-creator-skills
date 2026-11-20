@@ -13,6 +13,8 @@
   --text:#f4f4f6; --dim:#a0a2ab; --muted:#63656e;
   --ok:#22c55e; --warn:#f59e0b; --err:#ef4444;
   --ease:cubic-bezier(.16,1,.3,1);
+  --chev:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23a0a2ab' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  --tick:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23fff' stroke-width='3.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E");
 }
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%}
@@ -29,8 +31,15 @@ input,select,textarea{font-family:inherit;font-size:13px}
 ::-webkit-scrollbar-thumb{background:rgba(255,255,255,.12);border-radius:99px}
 ::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.22)}
 ::-webkit-scrollbar-track{background:transparent}
-.icon{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.85;
-  stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}
+.icon{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.75;
+  stroke-linecap:round;stroke-linejoin:round;flex-shrink:0;display:block}
+.icon.xs{width:12px;height:12px}
+.icon.sm{width:14px;height:14px}
+.icon.lg{width:18px;height:18px}
+.icon.xl{width:22px;height:22px}
+.icon.fill{fill:currentColor}
+.icon.spin{animation:spin .9s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
 
 /* ======================================================= SPLASH */
 #intro{position:fixed;inset:0;z-index:300;background:#08080a;display:grid;place-items:center}
@@ -59,6 +68,7 @@ input,select,textarea{font-family:inherit;font-size:13px}
   display:grid;place-items:center;color:var(--muted)
 }
 .login-close:hover{background:var(--hover);color:var(--text)}
+.login-close .icon{width:15px;height:15px}
 .logo-sm{width:54px;height:54px;border-radius:14px;margin:0 auto 16px;display:block}
 #login h1{font-size:20px;font-weight:700;letter-spacing:-.4px}
 #login .sub{margin-top:6px;font-size:12.5px;color:var(--dim);line-height:1.5}
@@ -81,30 +91,60 @@ input,select,textarea{font-family:inherit;font-size:13px}
 
 /* ======================================================= CONTROLS */
 .btn{
-  display:inline-flex;align-items:center;justify-content:center;gap:6px;
-  height:32px;padding:0 12px;border-radius:8px;font-size:12.5px;font-weight:600;
-  background:rgba(255,255,255,.06);color:var(--text);transition:background .13s,opacity .13s,transform .1s;white-space:nowrap
+  display:inline-flex;align-items:center;justify-content:center;gap:7px;
+  height:32px;padding:0 13px;border-radius:9px;font-size:12.5px;font-weight:600;
+  background:rgba(255,255,255,.06);color:var(--text);box-shadow:inset 0 0 0 1px var(--line);
+  transition:background .13s,box-shadow .13s,opacity .13s,transform .1s;white-space:nowrap
 }
-.btn:hover{background:rgba(255,255,255,.11)}
-.btn:active{transform:scale(.98)}
+.btn .icon{width:15px;height:15px}
+.btn:hover{background:rgba(255,255,255,.1);box-shadow:inset 0 0 0 1px var(--line-hi)}
+.btn:active{transform:scale(.97)}
 .btn:disabled{opacity:.4;cursor:not-allowed;transform:none}
-.btn.primary{background:var(--accent);color:#fff}
-.btn.primary:hover{background:#ff661a}
-.btn.light{background:#f4f4f6;color:#0b0b0d}
+.btn.primary{background:linear-gradient(180deg,#ff6b1f,#ff5500);color:#fff;box-shadow:inset 0 1px 0 rgba(255,255,255,.22),0 1px 2px rgba(0,0,0,.4)}
+.btn.primary:hover{background:linear-gradient(180deg,#ff7a36,#ff600f);box-shadow:inset 0 1px 0 rgba(255,255,255,.26),0 2px 8px rgba(255,85,0,.28)}
+.btn.light{background:#f4f4f6;color:#0b0b0d;box-shadow:none}
 .btn.light:hover{background:#fff}
-.btn.ghost{background:transparent;color:var(--dim)}
+.btn.ghost{background:transparent;color:var(--dim);box-shadow:none}
 .btn.ghost:hover{background:var(--hover);color:var(--text)}
-.btn.danger{background:rgba(239,68,68,.15);color:#fca5a5}
-.btn.danger:hover{background:#ef4444;color:#fff}
-.btn.sm{height:28px;padding:0 10px;font-size:12px}
-.btn.lg{height:38px;padding:0 16px;font-size:13px}
+.btn.danger{background:rgba(239,68,68,.14);color:#fca5a5;box-shadow:inset 0 0 0 1px rgba(239,68,68,.22)}
+.btn.danger:hover{background:#ef4444;color:#fff;box-shadow:none}
+.btn.sm{height:30px;padding:0 11px;font-size:12px;gap:6px}
+.btn.sm .icon{width:14px;height:14px}
+.btn.lg{height:40px;padding:0 18px;font-size:13px}
+.btn.lg .icon{width:16px;height:16px}
 .btn.wide{width:100%}
+
+/* BİTİŞİK DÜĞME GRUBU (araç çubukları) */
+.btn-group{
+  display:inline-flex;align-items:center;gap:1px;padding:2px;flex-shrink:0;
+  background:rgba(255,255,255,.045);border-radius:10px;box-shadow:inset 0 0 0 1px var(--line)
+}
+.gbtn{
+  height:28px;min-width:30px;padding:0 8px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;gap:6px;
+  color:var(--dim);font-size:12px;font-weight:600;white-space:nowrap;transition:background .12s,color .12s,transform .1s
+}
+.gbtn .icon{width:15px;height:15px}
+.gbtn:hover{background:rgba(255,255,255,.09);color:var(--text)}
+.gbtn:active{transform:scale(.95)}
+.gbtn:disabled{opacity:.35;pointer-events:none}
+.gl{display:none}
 
 input[type=text],input[type=password],select,textarea{
   width:100%;background:#0c0c0f;border:1px solid var(--line);color:var(--text);
   border-radius:8px;padding:7px 11px;outline:none;transition:border-color .14s,background .14s
 }
-input:focus,select:focus,textarea:focus{border-color:rgba(255,85,0,.6);background:#101014}
+input:focus,select:focus,textarea:focus{border-color:rgba(255,85,0,.6);background-color:#101014}
+select,select:focus{
+  appearance:none;-webkit-appearance:none;padding-right:30px;cursor:pointer;
+  background-image:var(--chev);background-repeat:no-repeat;background-position:right 10px center;background-size:13px
+}
+select:hover{border-color:var(--line-hi)}
+input[type=checkbox].chk{
+  appearance:none;-webkit-appearance:none;width:17px;height:17px;border-radius:5px;flex-shrink:0;cursor:pointer;
+  border:1.5px solid rgba(255,255,255,.24);background:transparent;transition:background .12s,border-color .12s
+}
+input[type=checkbox].chk:hover{border-color:rgba(255,255,255,.45)}
+input[type=checkbox].chk:checked{background:var(--accent) var(--tick) center/11px no-repeat;border-color:var(--accent)}
 textarea{resize:vertical;min-height:92px;line-height:1.5;font-size:12px}
 
 /* ======================================================= APP SHELL (2 PANE + PLAYER) */
@@ -122,15 +162,25 @@ textarea{resize:vertical;min-height:92px;line-height:1.5;font-size:12px}
 
 .nav{display:flex;flex-direction:column;gap:2px}
 .nav-item{
-  display:flex;align-items:center;justify-content:space-between;gap:10px;
-  padding:8px 10px;border-radius:8px;font-size:13px;font-weight:500;color:var(--dim);
+  position:relative;display:flex;align-items:center;justify-content:space-between;gap:10px;
+  padding:8px 10px;border-radius:9px;font-size:13px;font-weight:500;color:var(--dim);
   transition:background .12s,color .12s;text-align:left;width:100%
 }
+.nav-item .icon{width:17px;height:17px;color:var(--muted);transition:color .12s}
 .nav-item:hover{background:var(--hover);color:var(--text)}
-.nav-item.active{background:rgba(255,255,255,.08);color:var(--text);font-weight:600}
-.nav-left{display:flex;align-items:center;gap:10px}
-.nav-count{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
-.nav-item.active .nav-count{color:var(--dim)}
+.nav-item:hover .icon{color:var(--dim)}
+.nav-item.active{background:rgba(255,255,255,.07);color:var(--text);font-weight:600}
+.nav-item.active .icon{color:var(--accent)}
+.nav-item.active::before{
+  content:"";position:absolute;left:-12px;top:9px;bottom:9px;width:3px;border-radius:0 3px 3px 0;background:var(--accent)
+}
+.nav-left{display:flex;align-items:center;gap:11px}
+.nav-count{
+  font-size:10.5px;font-weight:600;color:var(--dim);font-variant-numeric:tabular-nums;
+  min-width:20px;padding:1px 7px;border-radius:99px;text-align:center;background:rgba(255,255,255,.06)
+}
+.nav-count:empty{display:none}
+.nav-item.active .nav-count{background:rgba(255,255,255,.1);color:var(--text)}
 
 .rail-section{display:flex;flex-direction:column;gap:3px}
 .rail-label{font-size:10.5px;font-weight:600;color:var(--muted);padding:0 10px 4px;letter-spacing:.3px}
@@ -150,25 +200,30 @@ textarea{resize:vertical;min-height:92px;line-height:1.5;font-size:12px}
   display:flex;flex-direction:column;gap:7px
 }
 .job-top{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:11.5px;font-weight:600}
+.job-title{display:inline-flex;align-items:center;gap:7px;min-width:0}
+.job-title .icon{color:var(--accent);width:14px;height:14px}
 .job-msg{font-size:11px;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .job-track{height:3px;border-radius:99px;background:rgba(255,255,255,.08);overflow:hidden}
 .job-fill{height:100%;width:0%;background:var(--accent);transition:width .25s ease}
-.job-stop{font-size:11px;color:#fca5a5;font-weight:600}
-.job-stop:hover{color:#fff}
+.job-stop{display:inline-flex;align-items:center;gap:5px;font-size:11px;color:#fca5a5;font-weight:600;padding:2px 6px;border-radius:6px}
+.job-stop .icon{width:11px;height:11px}
+.job-stop:hover{color:#fff;background:rgba(239,68,68,.25)}
 
 .account-row{
-  display:flex;align-items:center;gap:9px;padding:7px 8px;border-radius:9px;width:100%;
-  transition:background .12s;text-align:left
+  display:flex;align-items:center;gap:10px;padding:8px 8px;border-radius:10px;width:100%;
+  background:rgba(255,255,255,.03);box-shadow:inset 0 0 0 1px var(--line);
+  transition:background .12s,box-shadow .12s;text-align:left
 }
-.account-row:hover{background:var(--hover)}
-.account-row img,.account-off{width:26px;height:26px;border-radius:50%;object-fit:cover;flex-shrink:0}
-.account-off{background:rgba(255,255,255,.08);display:grid;place-items:center;color:var(--dim)}
+.account-row:hover{background:rgba(255,255,255,.07);box-shadow:inset 0 0 0 1px var(--line-hi)}
+.account-row img,.account-off{width:28px;height:28px;border-radius:50%;object-fit:cover;flex-shrink:0}
+.account-off{background:rgba(255,255,255,.08);display:grid;place-items:center;color:var(--dim);font-size:12px;font-weight:700}
 .account-nm{font-size:12.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1}
+.account-row .chev{color:var(--muted);width:14px;height:14px}
 
 /* ANA SAHNE */
 .stage-wrap{flex:1;min-width:0;min-height:0;background:var(--stage);display:flex;flex-direction:column}
 .view{flex:1;min-height:0;overflow-y:auto;padding:24px 32px 28px}
-.view-inner{max-width:1080px;margin:0 auto}
+.view-inner{max-width:1080px;margin:0 auto;container:vi / inline-size}
 
 .page-head{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:18px}
 .page-title{font-size:22px;font-weight:700;letter-spacing:-.5px;display:flex;align-items:baseline;gap:10px}
@@ -178,11 +233,16 @@ textarea{resize:vertical;min-height:92px;line-height:1.5;font-size:12px}
 /* KAYNAK SEKMELERİ */
 .tabs{display:flex;align-items:center;gap:4px;border-bottom:1px solid var(--line);margin-bottom:16px;flex-wrap:wrap}
 .tab{
+  display:inline-flex;align-items:center;gap:7px;
   padding:8px 12px 10px;font-size:12.5px;font-weight:500;color:var(--dim);
   border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap;transition:color .12s
 }
+.tab .icon{width:15px;height:15px;opacity:.55;transition:opacity .12s,color .12s}
 .tab:hover{color:var(--text)}
+.tab:hover .icon{opacity:.9}
 .tab.active{color:var(--text);font-weight:600;border-bottom-color:var(--accent)}
+.tab.active .icon{color:var(--accent);opacity:1}
+@container vi (max-width:930px){.tab .icon{display:none}}
 
 .custom-bar{display:flex;gap:8px;margin-bottom:16px}
 .custom-bar input{max-width:480px}
@@ -190,16 +250,31 @@ textarea{resize:vertical;min-height:92px;line-height:1.5;font-size:12px}
 /* FİLTRE POPOVER */
 .filter-anchor{position:relative}
 .filter-btn{
-  display:inline-flex;align-items:center;gap:7px;height:32px;padding:0 11px;border-radius:8px;
-  font-size:12px;font-weight:500;color:var(--dim);background:rgba(255,255,255,.04);border:1px solid var(--line);
+  display:inline-flex;align-items:center;gap:8px;height:32px;padding:0 11px;border-radius:9px;
+  font-size:12px;font-weight:500;color:var(--dim);background:rgba(255,255,255,.04);box-shadow:inset 0 0 0 1px var(--line);
   transition:background .12s,color .12s
 }
+.filter-btn .icon{width:14px;height:14px}
+.filter-btn .caret{width:13px;height:13px;color:var(--muted)}
 .filter-btn:hover{background:rgba(255,255,255,.08);color:var(--text)}
 .popover{
   position:absolute;right:0;top:38px;width:320px;z-index:120;padding:16px;
   background:#16161a;border:1px solid var(--line-hi);border-radius:14px;
   box-shadow:0 22px 54px rgba(0,0,0,.72);animation:fadeUp .15s var(--ease)
 }
+.menu{width:256px;padding:6px}
+.menu-item{
+  display:flex;align-items:center;gap:11px;width:100%;padding:8px 10px;border-radius:8px;
+  font-size:12.5px;font-weight:500;color:var(--text);text-align:left;transition:background .12s
+}
+.menu-item .icon{width:16px;height:16px;color:var(--dim)}
+.menu-item:hover{background:rgba(255,255,255,.07)}
+.menu-item:disabled{opacity:.4;cursor:not-allowed}
+.menu-item:disabled:hover{background:transparent}
+.menu-item.danger{color:#fca5a5}
+.menu-item.danger .icon{color:#f87171}
+.menu-item.danger:hover{background:rgba(239,68,68,.14)}
+.menu-sep{height:1px;background:var(--line);margin:6px 4px}
 .pop-group{margin-bottom:13px}
 .pop-group:last-child{margin-bottom:0}
 .pop-label{font-size:11px;font-weight:600;color:var(--muted);margin-bottom:6px;display:block}
@@ -267,33 +342,47 @@ textarea{resize:vertical;min-height:92px;line-height:1.5;font-size:12px}
 .t-meta .artist{color:var(--dim);font-weight:500;max-width:160px;overflow:hidden;text-overflow:ellipsis}
 
 .score-num{
-  font-size:13px;font-weight:700;text-align:right;font-variant-numeric:tabular-nums;color:var(--ok)
+  min-width:38px;padding:3px 0;border-radius:8px;text-align:center;
+  font-size:12.5px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--ok);background:rgba(34,197,94,.12)
 }
-.score-num.mid{color:var(--warn)}
-.score-num.low{color:#f87171}
+.score-num.mid{color:var(--warn);background:rgba(245,158,11,.12)}
+.score-num.low{color:#f87171;background:rgba(248,113,113,.12)}
 
 .row-right{display:flex;align-items:center;gap:12px;justify-content:flex-end}
-.row-fmt{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+.row-fmt{
+  font-size:10.5px;font-weight:600;letter-spacing:.2px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap;
+  padding:2px 7px;border-radius:6px;box-shadow:inset 0 0 0 1px var(--line)
+}
 .row-actions{display:flex;align-items:center;gap:2px;opacity:0;transition:opacity .12s}
 .track-row:hover .row-actions,.track-row:focus-within .row-actions{opacity:1}
 .ico-btn{
-  width:28px;height:28px;border-radius:7px;display:grid;place-items:center;color:var(--dim);
-  transition:background .12s,color .12s
+  width:30px;height:30px;border-radius:8px;display:grid;place-items:center;color:var(--dim);
+  transition:background .12s,color .12s,transform .1s
 }
+.ico-btn .icon{width:16px;height:16px}
 .ico-btn:hover{background:rgba(255,255,255,.08);color:var(--text)}
+.ico-btn:active{transform:scale(.92)}
+.ico-btn:disabled{opacity:.35;pointer-events:none}
 .ico-btn.del:hover{background:rgba(239,68,68,.14);color:var(--err)}
-.done-label{font-size:11.5px;font-weight:600;color:var(--ok);padding:0 6px;white-space:nowrap}
+.done-label{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:600;color:var(--ok);padding:0 6px;white-space:nowrap}
+.done-label .icon{width:14px;height:14px}
 
 /* ARAMA & SIRALAMA */
 .search-box{position:relative;width:210px}
-.search-box input{height:32px;padding:0 26px 0 30px;font-size:12.5px}
-.search-box .s-ico{position:absolute;left:9px;top:50%;transform:translateY(-50%);width:13px;height:13px;color:var(--muted);pointer-events:none}
-.search-box .s-clr{position:absolute;right:6px;top:50%;transform:translateY(-50%);width:18px;height:18px;border-radius:50%;color:var(--muted);display:grid;place-items:center}
-.search-box .s-clr:hover{color:var(--text)}
-.sort-sel{width:auto;height:32px;padding:0 10px;font-size:12px}
+.search-box input{height:32px;padding:0 28px 0 32px;font-size:12.5px}
+.search-box .s-ico{position:absolute;left:10px;top:50%;transform:translateY(-50%);width:14px;height:14px;color:var(--muted);pointer-events:none}
+.search-box .s-clr{position:absolute;right:6px;top:50%;transform:translateY(-50%);width:20px;height:20px;border-radius:50%;color:var(--muted);display:grid;place-items:center}
+.search-box .s-clr .icon{width:12px;height:12px}
+.search-box .s-clr:hover{color:var(--text);background:rgba(255,255,255,.08)}
+select.sort-sel,select.sort-sel:focus{width:auto;height:32px;padding:0 30px 0 11px;font-size:12px;border-radius:9px}
 
 /* BOŞ & TARAMA DURUMLARI */
-.empty-clean{padding:64px 20px;text-align:center;color:var(--dim)}
+.empty-clean{padding:56px 20px;text-align:center;color:var(--dim)}
+.empty-clean .e-ico{
+  width:56px;height:56px;border-radius:16px;margin:0 auto 16px;display:grid;place-items:center;color:var(--dim);
+  background:rgba(255,255,255,.04);box-shadow:inset 0 0 0 1px var(--line)
+}
+.empty-clean .e-ico .icon{width:24px;height:24px}
 .empty-clean h3{font-size:15px;font-weight:600;color:var(--text);margin-bottom:6px}
 .empty-clean p{font-size:12.5px;color:var(--muted);max-width:380px;margin:0 auto 18px;line-height:1.55}
 .quick-links{display:flex;justify-content:center;flex-wrap:wrap;gap:8px}
@@ -312,7 +401,9 @@ textarea{resize:vertical;min-height:92px;line-height:1.5;font-size:12px}
 .settings-wrap{max-width:620px;margin:0 auto}
 .set-sec{padding:20px 0;border-bottom:1px solid var(--line)}
 .set-sec:last-child{border-bottom:none}
-.set-h{font-size:14px;font-weight:600;margin-bottom:4px}
+.set-h{display:flex;align-items:center;gap:10px;font-size:14px;font-weight:600;margin-bottom:5px}
+.set-h .s-ico{width:28px;height:28px;border-radius:8px;display:grid;place-items:center;background:var(--accent-soft);color:var(--accent)}
+.set-h .s-ico .icon{width:15px;height:15px}
 .set-d{font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.5}
 .row{display:flex;gap:8px;align-items:center}
 .path-pill{
@@ -325,28 +416,48 @@ textarea{resize:vertical;min-height:92px;line-height:1.5;font-size:12px}
 /* DAHİLİ SOUNDCLOUD SEKME DÜZENİ */
 .sc-view{flex:1;min-height:0;display:flex;flex-direction:column;background:var(--stage)}
 .sc-bar{
-  height:48px;flex-shrink:0;display:flex;align-items:center;gap:6px;padding:0 12px;
+  container:scbar / inline-size;
+  height:52px;flex-shrink:0;display:flex;align-items:center;gap:8px;padding:0 12px;
   border-bottom:1px solid var(--line);background:var(--rail);overflow-x:auto;scrollbar-width:none
 }
 .sc-bar::-webkit-scrollbar{display:none}
-.sc-navbtn{width:28px;height:28px;border-radius:7px;display:grid;place-items:center;color:var(--dim);flex-shrink:0;transition:background .12s,color .12s}
-.sc-navbtn:hover{background:var(--hover);color:var(--text)}
 .sc-url{
-  flex:1;min-width:90px;max-width:220px;font-size:11.5px;color:var(--muted);padding:4px 9px;
-  border-radius:7px;background:rgba(255,255,255,.04);white-space:nowrap;overflow:hidden;text-overflow:ellipsis
+  flex:1;min-width:110px;max-width:260px;height:30px;display:flex;align-items:center;gap:7px;padding:0 10px;
+  border-radius:9px;background:rgba(0,0,0,.28);box-shadow:inset 0 0 0 1px var(--line);color:var(--muted);font-size:11.5px
 }
-@media (max-width:1180px){.sc-url{display:none}}
-.sc-sep{width:1px;height:18px;background:var(--line);margin:0 2px;flex-shrink:0}
-.sc-upload-pick{width:auto;max-width:175px;height:28px;padding:0 8px;font-size:12px}
+.sc-url .icon{width:13px;height:13px;flex-shrink:0}
+.sc-url span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sc-sep{width:1px;height:20px;background:var(--line);margin:0 2px;flex-shrink:0}
+.sc-pick{position:relative;flex-shrink:1;min-width:120px}
+.sc-pick .icon{position:absolute;left:10px;top:50%;transform:translateY(-50%);width:14px;height:14px;color:var(--muted);pointer-events:none}
+.sc-upload-pick{width:100%;max-width:210px;height:30px;padding:0 28px 0 30px;font-size:12px;border-radius:9px}
+@container scbar (min-width:1360px){.gl{display:inline}}
+@container scbar (max-width:1120px){
+  .sc-act .lbl{display:none}
+  .sc-act{padding:0 9px}
+  .sc-url{max-width:170px}
+}
+@container scbar (max-width:900px){.sc-url{display:none}}
 .sc-banner{
-  padding:6px 14px;font-size:12px;color:#ffd0b8;background:rgba(255,85,0,.09);
-  border-bottom:1px solid rgba(255,85,0,.22);display:flex;align-items:center;justify-content:space-between;gap:10px;flex-shrink:0
+  position:relative;overflow:hidden;min-height:38px;
+  padding:0 8px 0 14px;font-size:12px;color:#ffd0b8;background:rgba(255,85,0,.08);
+  border-bottom:1px solid rgba(255,85,0,.2);display:flex;align-items:center;gap:10px;flex-shrink:0
 }
-.sc-banner.ok{color:#86efac;background:rgba(34,197,94,.09);border-bottom-color:rgba(34,197,94,.24)}
-.sc-banner.err{color:#fca5a5;background:rgba(239,68,68,.1);border-bottom-color:rgba(239,68,68,.24)}
+.sc-banner .b-ico{color:var(--accent);width:16px;height:16px}
+.sc-banner .b-text{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sc-banner.busy::after{
+  content:"";position:absolute;left:0;bottom:0;height:2px;width:28%;
+  background:linear-gradient(90deg,transparent,var(--accent),transparent);animation:bslide 1.5s ease-in-out infinite
+}
+@keyframes bslide{from{transform:translateX(-100%)}to{transform:translateX(360%)}}
+.sc-banner.ok{color:#86efac;background:rgba(34,197,94,.08);border-bottom-color:rgba(34,197,94,.22)}
+.sc-banner.ok .b-ico{color:var(--ok)}
+.sc-banner.err{color:#fca5a5;background:rgba(239,68,68,.09);border-bottom-color:rgba(239,68,68,.22)}
+.sc-banner.err .b-ico{color:var(--err)}
 .sc-viewport{
   flex:1;min-height:0;position:relative;display:grid;place-items:center;color:var(--muted);font-size:12.5px
 }
+@media (prefers-reduced-motion:reduce){.sc-banner.busy::after,.icon.spin{animation:none}}
 
 /* ======================================================= ALT OYNATICI (72px SİMETRİK) */
 .player{
@@ -362,13 +473,17 @@ textarea{resize:vertical;min-height:92px;line-height:1.5;font-size:12px}
 
 .p-center{display:flex;flex-direction:column;gap:5px;min-width:0}
 .p-trans{display:flex;align-items:center;justify-content:center;gap:14px}
-.tbtn{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;color:var(--dim);transition:color .12s}
-.tbtn:hover{color:var(--text)}
+.tbtn{position:relative;width:32px;height:32px;border-radius:50%;display:grid;place-items:center;color:var(--dim);transition:color .12s,background .12s,transform .1s}
+.tbtn .icon{width:17px;height:17px}
+.tbtn:hover{color:var(--text);background:rgba(255,255,255,.06)}
+.tbtn:active{transform:scale(.92)}
 .tbtn.on{color:var(--accent)}
+.tbtn.on::after{content:"";position:absolute;bottom:1px;left:50%;width:4px;height:4px;border-radius:50%;background:var(--accent);transform:translateX(-50%)}
 .p-play{
-  width:34px;height:34px;border-radius:50%;background:#f4f4f6;color:#09090b;
+  width:38px;height:38px;border-radius:50%;background:#f4f4f6;color:#09090b;
   display:grid;place-items:center;transition:transform .12s,background .12s
 }
+.p-play .icon{width:16px;height:16px}
 .p-play:hover{transform:scale(1.06);background:#fff}
 .p-play:active{transform:scale(.96)}
 
@@ -406,19 +521,37 @@ textarea{resize:vertical;min-height:92px;line-height:1.5;font-size:12px}
   width:420px;max-width:100%;background:#141418;border:1px solid var(--line-hi);
   border-radius:14px;padding:20px;box-shadow:0 24px 68px rgba(0,0,0,.72);animation:fadeUp .2s var(--ease)
 }
-.modal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
-.modal-title{font-size:15px;font-weight:700}
+.modal-head{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+.modal-title{font-size:15px;font-weight:700;flex:1;min-width:0}
+.modal-ico{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;flex-shrink:0;background:var(--accent-soft);color:var(--accent)}
+.modal-ico.danger{background:rgba(239,68,68,.14);color:#f87171}
+.acc-list{display:flex;flex-direction:column;gap:2px;margin:4px 0 8px}
+.acc-row{display:flex;align-items:center;gap:11px;padding:9px 10px;border-radius:10px;cursor:pointer;transition:background .12s}
+.acc-row:hover{background:rgba(255,255,255,.06)}
+.acc-row.active{background:var(--accent-soft);cursor:default}
+.acc-av{
+  width:32px;height:32px;border-radius:50%;object-fit:cover;flex-shrink:0;display:grid;place-items:center;
+  background:rgba(255,255,255,.08);font-weight:700;font-size:13px;color:var(--dim)
+}
+.acc-nm{flex:1;min-width:0;font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.acc-state{display:grid;place-items:center;color:var(--accent)}
 .modal-sub{font-size:12.5px;color:var(--dim);line-height:1.55;margin-bottom:14px}
 .modal-foot{display:flex;justify-content:flex-end;gap:8px;margin-top:16px}
 .lightbox-img{width:100%;max-width:360px;aspect-ratio:1/1;object-fit:cover;border-radius:10px;display:block;margin:8px auto 0}
 
 #toasts{position:fixed;right:16px;bottom:86px;display:flex;flex-direction:column;gap:8px;z-index:280;max-width:340px;pointer-events:none}
 .toast{
-  pointer-events:auto;background:#19191e;border:1px solid var(--line-hi);border-radius:10px;
-  padding:10px 13px;font-size:12px;color:var(--text);box-shadow:0 14px 36px rgba(0,0,0,.55);animation:fadeUp .2s var(--ease)
+  pointer-events:auto;display:flex;align-items:flex-start;gap:10px;
+  background:#19191e;border:1px solid var(--line-hi);border-radius:11px;
+  padding:11px 13px;font-size:12px;line-height:1.45;color:var(--text);
+  box-shadow:0 14px 36px rgba(0,0,0,.55);animation:toastIn .28s var(--ease)
 }
-.toast.ok{border-left:3px solid var(--ok)}
-.toast.err{border-left:3px solid var(--err)}
+.toast .icon{margin-top:1px;color:var(--dim);width:16px;height:16px}
+.toast.ok{border-color:rgba(34,197,94,.3)}
+.toast.ok .icon{color:var(--ok)}
+.toast.err{border-color:rgba(239,68,68,.34)}
+.toast.err .icon{color:var(--err)}
+@keyframes toastIn{from{opacity:0;transform:translateX(16px)}to{opacity:1;transform:none}}
 
 @media (max-width:1080px){
   .rail{width:194px}
@@ -429,6 +562,69 @@ textarea{resize:vertical;min-height:92px;line-height:1.5;font-size:12px}
 </style>
 </head>
 <body>
+
+<!-- ===================== SİMGE SETİ (tek kaynak) ===================== -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs>
+<symbol id="i-compass" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m16.24 7.76-1.804 5.411a2 2 0 0 1-1.265 1.265L7.76 16.24l1.804-5.411a2 2 0 0 1 1.265-1.265z"/></symbol>
+<symbol id="i-library" viewBox="0 0 24 24"><path d="m16 6 4 14"/><path d="M12 6v14"/><path d="M8 8v12"/><path d="M4 4v16"/></symbol>
+<symbol id="i-cloud" viewBox="0 0 24 24"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></symbol>
+<symbol id="i-sliders" viewBox="0 0 24 24"><line x1="21" x2="14" y1="4" y2="4"/><line x1="10" x2="3" y1="4" y2="4"/><line x1="21" x2="12" y1="12" y2="12"/><line x1="8" x2="3" y1="12" y2="12"/><line x1="21" x2="16" y1="20" y2="20"/><line x1="12" x2="3" y1="20" y2="20"/><line x1="14" x2="14" y1="2" y2="6"/><line x1="8" x2="8" y1="10" y2="14"/><line x1="16" x2="16" y1="18" y2="22"/></symbol>
+<symbol id="i-folder" viewBox="0 0 24 24"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/></symbol>
+<symbol id="i-folder-open" viewBox="0 0 24 24"><path d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2"/></symbol>
+<symbol id="i-user" viewBox="0 0 24 24"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></symbol>
+<symbol id="i-user-plus" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" x2="19" y1="8" y2="14"/><line x1="22" x2="16" y1="11" y2="11"/></symbol>
+<symbol id="i-users" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></symbol>
+<symbol id="i-log-out" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></symbol>
+<symbol id="i-log-in" viewBox="0 0 24 24"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" x2="3" y1="12" y2="12"/></symbol>
+<symbol id="i-chevron-left" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></symbol>
+<symbol id="i-chevron-right" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol>
+<symbol id="i-chevron-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+<symbol id="i-chevrons-up-down" viewBox="0 0 24 24"><path d="m7 15 5 5 5-5"/><path d="m7 9 5-5 5 5"/></symbol>
+<symbol id="i-home" viewBox="0 0 24 24"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></symbol>
+<symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></symbol>
+<symbol id="i-rotate-cw" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></symbol>
+<symbol id="i-rotate-ccw" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></symbol>
+<symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></symbol>
+<symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></symbol>
+<symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+<symbol id="i-circle-plus" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/><path d="M12 8v8"/></symbol>
+<symbol id="i-cloud-upload" viewBox="0 0 24 24"><path d="M12 13v8"/><path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"/><path d="m8 17 4-4 4 4"/></symbol>
+<symbol id="i-download" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></symbol>
+<symbol id="i-layers" viewBox="0 0 24 24"><path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"/><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65"/><path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"/></symbol>
+<symbol id="i-dollar" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><path d="M12 18V6"/></symbol>
+<symbol id="i-sparkles" viewBox="0 0 24 24"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/><path d="M20 3v4"/><path d="M22 5h-4"/><path d="M4 17v2"/><path d="M5 18H3"/></symbol>
+<symbol id="i-scan-search" viewBox="0 0 24 24"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><circle cx="12" cy="12" r="3"/><path d="m16 16-1.9-1.9"/></symbol>
+<symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></symbol>
+<symbol id="i-image" viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></symbol>
+<symbol id="i-more" viewBox="0 0 24 24"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></symbol>
+<symbol id="i-square" viewBox="0 0 24 24"><rect width="14" height="14" x="5" y="5" rx="2"/></symbol>
+<symbol id="i-list-filter" viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M7 12h10"/><path d="M10 18h4"/></symbol>
+<symbol id="i-list-checks" viewBox="0 0 24 24"><path d="m3 17 2 2 4-4"/><path d="m3 7 2 2 4-4"/><path d="M13 6h8"/><path d="M13 12h8"/><path d="M13 18h8"/></symbol>
+<symbol id="i-type" viewBox="0 0 24 24"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" x2="15" y1="20" y2="20"/><line x1="12" x2="12" y1="4" y2="20"/></symbol>
+<symbol id="i-keyboard" viewBox="0 0 24 24"><path d="M10 8h.01"/><path d="M12 12h.01"/><path d="M14 8h.01"/><path d="M16 12h.01"/><path d="M18 8h.01"/><path d="M6 8h.01"/><path d="M7 16h10"/><path d="M8 12h.01"/><rect width="20" height="16" x="2" y="4" rx="2"/></symbol>
+<symbol id="i-save" viewBox="0 0 24 24"><path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7"/><path d="M7 3v4a1 1 0 0 0 1 1h7"/></symbol>
+<symbol id="i-flame" viewBox="0 0 24 24"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></symbol>
+<symbol id="i-zap" viewBox="0 0 24 24"><path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"/></symbol>
+<symbol id="i-waves" viewBox="0 0 24 24"><path d="M2 6c.6.5 1.2 1 2.5 1C7 7 7 5 9.5 5c2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M2 12c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/><path d="M2 18c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/></symbol>
+<symbol id="i-music" viewBox="0 0 24 24"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></symbol>
+<symbol id="i-disc" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M6 12c0-1.7.7-3.2 1.8-4.2"/><circle cx="12" cy="12" r="2"/><path d="M18 12c0 1.7-.7 3.2-1.8 4.2"/></symbol>
+<symbol id="i-heart" viewBox="0 0 24 24"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></symbol>
+<symbol id="i-link" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></symbol>
+<symbol id="i-play" viewBox="0 0 24 24"><polygon points="6 3 20 12 6 21 6 3"/></symbol>
+<symbol id="i-pause" viewBox="0 0 24 24"><rect x="14" y="4" width="4" height="16" rx="1"/><rect x="6" y="4" width="4" height="16" rx="1"/></symbol>
+<symbol id="i-skip-back" viewBox="0 0 24 24"><polygon points="19 20 9 12 19 4 19 20"/><line x1="5" x2="5" y1="19" y2="5"/></symbol>
+<symbol id="i-skip-forward" viewBox="0 0 24 24"><polygon points="5 4 15 12 5 20 5 4"/><line x1="19" x2="19" y1="5" y2="19"/></symbol>
+<symbol id="i-shuffle" viewBox="0 0 24 24"><path d="m18 14 4 4-4 4"/><path d="m18 2 4 4-4 4"/><path d="M2 18h1.973a4 4 0 0 0 3.3-1.7l5.454-8.6a4 4 0 0 1 3.3-1.7H22"/><path d="M2 6h1.972a4 4 0 0 1 3.6 2.2"/><path d="M22 18h-6.041a4 4 0 0 1-3.3-1.8l-.359-.45"/></symbol>
+<symbol id="i-repeat" viewBox="0 0 24 24"><path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></symbol>
+<symbol id="i-volume-1" viewBox="0 0 24 24"><path d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z"/><path d="M16 9a5 5 0 0 1 0 6"/></symbol>
+<symbol id="i-volume-2" viewBox="0 0 24 24"><path d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z"/><path d="M16 9a5 5 0 0 1 0 6"/><path d="M19.364 18.364a9 9 0 0 0 0-12.728"/></symbol>
+<symbol id="i-volume-x" viewBox="0 0 24 24"><path d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z"/><line x1="22" x2="16" y1="9" y2="15"/><line x1="16" x2="22" y1="9" y2="15"/></symbol>
+<symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></symbol>
+<symbol id="i-circle-check" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></symbol>
+<symbol id="i-circle-alert" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></symbol>
+<symbol id="i-triangle-alert" viewBox="0 0 24 24"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></symbol>
+<symbol id="i-loader" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></symbol>
+</defs></svg>
 
 <!-- ===================== SPLASH ===================== -->
 <div id="intro">
@@ -454,7 +650,7 @@ textarea{resize:vertical;min-height:92px;line-height:1.5;font-size:12px}
 <!-- ===================== ONBOARDING ===================== -->
 <div id="login" class="hidden">
   <div class="card">
-    <button class="login-close hidden" id="loginCloseBtn" title="Kapat (Esc)">✕</button>
+    <button class="login-close hidden" id="loginCloseBtn" title="Kapat (Esc)" aria-label="Kapat"><svg class="icon" aria-hidden="true"><use href="#i-x"/></svg></button>
     <img class="logo-sm" src="/static/logo.svg" alt="">
     <h1>SC Studio</h1>
     <p class="sub">SoundCloud edit parçalarını keşfet, puanla ve kapaklı MP3 arşivini oluştur.</p>
@@ -462,7 +658,7 @@ textarea{resize:vertical;min-height:92px;line-height:1.5;font-size:12px}
     <div id="loginEnvWarn" class="warn-pill hidden">ffmpeg.exe eksik — indirme çalışması için ekleyin</div>
 
     <div class="actions">
-      <button class="btn primary lg wide" id="signInBtn">SoundCloud ile giriş yap</button>
+      <button class="btn primary lg wide" id="signInBtn"><svg class="icon" aria-hidden="true"><use href="#i-log-in"/></svg>SoundCloud ile giriş yap</button>
       <button class="btn wide" id="guestBtn">Misafir olarak devam et</button>
     </div>
 
@@ -475,7 +671,7 @@ textarea{resize:vertical;min-height:92px;line-height:1.5;font-size:12px}
         <p class="help">Chrome, güvenlik gereği çerezleri şifrelediği için dışarıdan otomatik okunamaz. Çıkış sonrası açılan pencereden yeni hesabına girebilir veya Chrome’da açık hesabı token ile anında bağlayabilirsin:</p>
         <div><label>Chrome SoundCloud oauth_token</label><input type="password" id="advToken" spellcheck="false" placeholder="oauth_token değeri"></div>
         <div style="display:flex;gap:6px">
-          <button class="btn sm primary" id="advTokenSave" style="flex:1">Token ile Bağla</button>
+          <button class="btn sm primary" id="advTokenSave" style="flex:1"><svg class="icon" aria-hidden="true"><use href="#i-link"/></svg>Token ile Bağla</button>
           <button class="btn sm ghost" id="advTokenCopy" title="Chrome F12 Konsol komutunu panoya kopyala">Konsol Kodu Kopyala</button>
         </div>
         <hr style="border:none;border-top:1px solid var(--line);margin:2px 0">
@@ -502,27 +698,27 @@ textarea{resize:vertical;min-height:92px;line-height:1.5;font-size:12px}
       <nav class="nav">
         <button class="nav-item active" data-tab="discover">
           <span class="nav-left">
-            <svg class="icon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+            <svg class="icon" aria-hidden="true"><use href="#i-compass"/></svg>
             Keşfet
           </span>
           <span class="nav-count" id="navCandCount"></span>
         </button>
         <button class="nav-item" data-tab="library">
           <span class="nav-left">
-            <svg class="icon" viewBox="0 0 24 24"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+            <svg class="icon" aria-hidden="true"><use href="#i-library"/></svg>
             Arşivim
           </span>
           <span class="nav-count" id="navTrackCount">0</span>
         </button>
         <button class="nav-item" data-tab="soundcloud">
           <span class="nav-left">
-            <svg class="icon" viewBox="0 0 24 24"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></svg>
+            <svg class="icon" aria-hidden="true"><use href="#i-cloud"/></svg>
             SoundCloud
           </span>
         </button>
         <button class="nav-item" data-tab="settings">
           <span class="nav-left">
-            <svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9c.26.6.83 1 1.51 1H21a2 2 0 1 1 0 4h-.09c-.68 0-1.25.4-1.51 1z"/></svg>
+            <svg class="icon" aria-hidden="true"><use href="#i-sliders"/></svg>
             Ayarlar
           </span>
         </button>
@@ -532,7 +728,7 @@ textarea{resize:vertical;min-height:92px;line-height:1.5;font-size:12px}
         <div class="rail-label">Kısayollar</div>
         <button class="nav-item" id="openFolderBtn">
           <span class="nav-left">
-            <svg class="icon" viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+            <svg class="icon" aria-hidden="true"><use href="#i-folder-open"/></svg>
             Klasörü Aç
           </span>
         </button>
@@ -543,18 +739,17 @@ textarea{resize:vertical;min-height:92px;line-height:1.5;font-size:12px}
       <!-- AKTİF İŞLEM DURUMU (YALNIZCA ÇALIŞIRKEN) -->
       <div class="job-box hidden" id="jobBox">
         <div class="job-top">
-          <span id="jobTitle">Taranıyor</span>
-          <button class="job-stop" id="cancelOpBtn">Durdur</button>
+          <span class="job-title"><svg class="icon spin" aria-hidden="true"><use href="#i-loader"/></svg><span id="jobTitle">Taranıyor</span></span>
+          <button class="job-stop" id="cancelOpBtn" title="İşlemi durdur"><svg class="icon fill" aria-hidden="true"><use href="#i-square"/></svg>Durdur</button>
         </div>
         <div class="job-msg" id="jobMsg">...</div>
         <div class="job-track"><div class="job-fill" id="progressBar"></div></div>
       </div>
 
-      <button class="account-row" id="accountBtn" title="Hesap">
-        <span id="accountAvatar" class="account-off">
-          <svg class="icon" style="width:13px;height:13px" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>
-        </span>
+      <button class="account-row" id="accountBtn" title="Hesaplar" aria-label="Hesaplar">
+        <span id="accountAvatar" class="account-off"><svg class="icon sm" aria-hidden="true"><use href="#i-user"/></svg></span>
         <span class="account-nm" id="accountName">Giriş yap</span>
+        <svg class="icon chev" aria-hidden="true"><use href="#i-chevrons-up-down"/></svg>
       </button>
     </aside>
 
@@ -568,9 +763,10 @@ textarea{resize:vertical;min-height:92px;line-height:1.5;font-size:12px}
             <h1 class="page-title">Keşfet <span class="page-sub" id="discoverSub">SoundCloud viral edit taraması</span></h1>
             <div class="head-controls">
               <div class="filter-anchor">
-                <button class="filter-btn" id="filterToggle">
-                  <svg class="icon" style="width:13px;height:13px" viewBox="0 0 24 24"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+                <button class="filter-btn" id="filterToggle" aria-label="Tarama filtreleri">
+                  <svg class="icon" aria-hidden="true"><use href="#i-list-filter"/></svg>
                   <span id="filterSummary">1 Hafta · 5 parça · 65+ skor</span>
+                  <svg class="icon caret" aria-hidden="true"><use href="#i-chevron-down"/></svg>
                 </button>
                 <div class="popover hidden" id="filterPopover">
                   <div class="pop-group">
@@ -619,18 +815,18 @@ textarea{resize:vertical;min-height:92px;line-height:1.5;font-size:12px}
                   <input type="hidden" id="minScore" value="65">
                 </div>
               </div>
-              <button class="btn primary" id="scanBtn">Tara</button>
+              <button class="btn primary" id="scanBtn"><svg class="icon" aria-hidden="true"><use href="#i-search"/></svg><span class="lbl">Tara</span></button>
             </div>
           </div>
 
           <div class="tabs" id="sourceTabs">
-            <button class="tab" data-src="all_viral">Tümü Viral</button>
-            <button class="tab" data-src="hardtekk">Hardtekk</button>
-            <button class="tab" data-src="phonk">Phonk</button>
-            <button class="tab" data-src="slowed_reverb">Slowed + Reverb</button>
-            <button class="tab active" data-src="curated_creators">Referans Kanallar</button>
-            <button class="tab" data-src="my_likes">Beğenilerim</button>
-            <button class="tab" data-src="custom_url">Özel Link / Arama</button>
+            <button class="tab" data-src="all_viral"><svg class="icon" aria-hidden="true"><use href="#i-flame"/></svg>Tümü Viral</button>
+            <button class="tab" data-src="hardtekk"><svg class="icon" aria-hidden="true"><use href="#i-zap"/></svg>Hardtekk</button>
+            <button class="tab" data-src="phonk"><svg class="icon" aria-hidden="true"><use href="#i-disc"/></svg>Phonk</button>
+            <button class="tab" data-src="slowed_reverb"><svg class="icon" aria-hidden="true"><use href="#i-waves"/></svg>Slowed + Reverb</button>
+            <button class="tab active" data-src="curated_creators"><svg class="icon" aria-hidden="true"><use href="#i-users"/></svg>Referans Kanallar</button>
+            <button class="tab" data-src="my_likes"><svg class="icon" aria-hidden="true"><use href="#i-heart"/></svg>Beğenilerim</button>
+            <button class="tab" data-src="custom_url"><svg class="icon" aria-hidden="true"><use href="#i-link"/></svg>Özel Link / Arama</button>
           </div>
           <input type="hidden" id="source" value="curated_creators">
 
@@ -647,9 +843,9 @@ textarea{resize:vertical;min-height:92px;line-height:1.5;font-size:12px}
                 <option value="likes">Beğeni</option>
                 <option value="recent">En Yeni</option>
               </select>
-              <button class="btn sm ghost" id="selectAll">Tümünü Seç</button>
-              <button class="btn sm ghost" id="resetCandsBtn" title="Bulunan parça listesini sıfırla">Sıfırla</button>
-              <button class="btn primary sm" id="downloadBtn">İndir</button>
+              <button class="btn sm ghost" id="selectAll"><svg class="icon" aria-hidden="true"><use href="#i-list-checks"/></svg><span class="lbl">Tümünü Seç</span></button>
+              <button class="btn sm ghost" id="resetCandsBtn" title="Bulunan parça listesini sıfırla"><svg class="icon" aria-hidden="true"><use href="#i-rotate-ccw"/></svg><span class="lbl">Sıfırla</span></button>
+              <button class="btn primary sm" id="downloadBtn"><svg class="icon" aria-hidden="true"><use href="#i-download"/></svg><span class="lbl">İndir</span></button>
             </div>
           </div>
 
@@ -664,24 +860,25 @@ textarea{resize:vertical;min-height:92px;line-height:1.5;font-size:12px}
             <h1 class="page-title">Arşivim <span class="page-sub" id="libSubtitle">0 parça</span></h1>
             <div class="head-controls">
               <div class="search-box">
-                <svg class="icon s-ico" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+                <svg class="icon s-ico" aria-hidden="true"><use href="#i-search"/></svg>
                 <input type="text" id="trackSearch" placeholder="Ara..." title="Ara (Ctrl+F)" spellcheck="false">
-                <button class="s-clr hidden" id="clearSearchBtn" title="Temizle">×</button>
+                <button class="s-clr hidden" id="clearSearchBtn" title="Temizle" aria-label="Aramayı temizle"><svg class="icon" aria-hidden="true"><use href="#i-x"/></svg></button>
               </div>
               <select id="libSort" class="sort-sel">
                 <option value="recent">En Yeni</option>
                 <option value="name">Ad (A-Z)</option>
                 <option value="size">Boyut</option>
               </select>
-              <button class="btn ghost" id="clearArchiveBtn" title="Arşivdeki tüm indirilen parçaları sil">Arşivi Temizle</button>
               <div class="filter-anchor">
-                <button class="btn" id="libMoreBtn" title="Arşiv araçları">İşlemler ▾</button>
-                <div class="popover hidden" id="libMenu" style="width:236px;padding:6px">
-                  <button class="nav-item" id="bulkUploadBtn">Hepsini Toplu Yükle</button>
-                  <button class="nav-item" id="monetizeSweepBtn">Monetize Kontrol &amp; Tekrar At</button>
-                  <button class="nav-item" id="regenAll">Başlık &amp; Kapakları Yenile</button>
-                  <button class="nav-item" id="exportCovers">Kapakları .jpg Çıkar</button>
-                  <button class="nav-item" id="openCurrent">Klasörde Aç</button>
+                <button class="btn" id="libMoreBtn" title="Arşiv araçları"><svg class="icon" aria-hidden="true"><use href="#i-more"/></svg>İşlemler<svg class="icon sm" aria-hidden="true"><use href="#i-chevron-down"/></svg></button>
+                <div class="popover menu hidden" id="libMenu">
+                  <button class="menu-item" id="bulkUploadBtn"><svg class="icon" aria-hidden="true"><use href="#i-layers"/></svg>Hepsini Toplu Yükle</button>
+                  <button class="menu-item" id="monetizeSweepBtn"><svg class="icon" aria-hidden="true"><use href="#i-dollar"/></svg>Monetize Kontrol &amp; Tekrar At</button>
+                  <button class="menu-item" id="regenAll"><svg class="icon" aria-hidden="true"><use href="#i-sparkles"/></svg>Başlık &amp; Kapakları Yenile</button>
+                  <button class="menu-item" id="exportCovers"><svg class="icon" aria-hidden="true"><use href="#i-image"/></svg>Kapakları .jpg Çıkar</button>
+                  <button class="menu-item" id="openCurrent"><svg class="icon" aria-hidden="true"><use href="#i-folder-open"/></svg>Klasörde Aç</button>
+                  <div class="menu-sep"></div>
+                  <button class="menu-item danger" id="clearArchiveBtn" title="Arşivdeki tüm indirilen parçaları sil"><svg class="icon" aria-hidden="true"><use href="#i-trash"/></svg>Arşivi Temizle</button>
                 </div>
               </div>
             </div>
@@ -694,31 +891,33 @@ textarea{resize:vertical;min-height:92px;line-height:1.5;font-size:12px}
       <!-- 3. DAHİLİ SOUNDCLOUD GÖRÜNÜMÜ -->
       <section class="sc-view hidden" id="view-soundcloud">
         <div class="sc-bar">
-          <button class="sc-navbtn" id="scBackBtn" title="Geri">
-            <svg class="icon" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
-          </button>
-          <button class="sc-navbtn" id="scFwdBtn" title="İleri">
-            <svg class="icon" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
-          </button>
-          <button class="sc-navbtn" id="scReloadBtn" title="Yenile">
-            <svg class="icon" viewBox="0 0 24 24"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/></svg>
-          </button>
-          <button class="btn sm ghost" id="scHomeBtn">Ana Sayfa</button>
-          <button class="btn sm ghost" id="scUploadNavBtn">+ Yükle</button>
-          <button class="btn sm ghost" id="scMonetizeNavBtn" title="SoundCloud for Artists Monetization">Monetize</button>
-          <button class="btn sm ghost" id="scProfileBtn">Profilim</button>
-          <span class="sc-url" id="scUrlChip">soundcloud.com/discover</span>
+          <div class="btn-group" role="group" aria-label="Gezinme">
+            <button class="gbtn" id="scBackBtn" title="Geri" aria-label="Geri"><svg class="icon" aria-hidden="true"><use href="#i-chevron-left"/></svg></button>
+            <button class="gbtn" id="scFwdBtn" title="İleri" aria-label="İleri"><svg class="icon" aria-hidden="true"><use href="#i-chevron-right"/></svg></button>
+            <button class="gbtn" id="scReloadBtn" title="Yenile" aria-label="Yenile"><svg class="icon" aria-hidden="true"><use href="#i-rotate-cw"/></svg></button>
+          </div>
+          <div class="sc-url" title="Açık sayfa"><svg class="icon" aria-hidden="true"><use href="#i-globe"/></svg><span id="scUrlChip">soundcloud.com/discover</span></div>
+          <div class="btn-group" role="group" aria-label="Kısayollar">
+            <button class="gbtn" id="scHomeBtn" title="SoundCloud ana sayfa"><svg class="icon" aria-hidden="true"><use href="#i-home"/></svg><span class="gl">Ana Sayfa</span></button>
+            <button class="gbtn" id="scUploadNavBtn" title="SoundCloud yükleme sayfasını aç"><svg class="icon" aria-hidden="true"><use href="#i-circle-plus"/></svg><span class="gl">Yükleme</span></button>
+            <button class="gbtn" id="scMonetizeNavBtn" title="SoundCloud for Artists · Monetization"><svg class="icon" aria-hidden="true"><use href="#i-dollar"/></svg><span class="gl">Monetize</span></button>
+            <button class="gbtn" id="scProfileBtn" title="Profilim"><svg class="icon" aria-hidden="true"><use href="#i-user"/></svg><span class="gl">Profilim</span></button>
+          </div>
           <div class="sc-sep"></div>
-          <select id="scTrackSelect" class="sc-upload-pick" title="Yüklenecek indirilen şarkıyı seç"></select>
-          <button class="btn sm primary" id="scQuickUploadBtn" title="Seçili şarkıyı yükle + Amplify + otomatik Monetize başvurusu yap">Yükle</button>
-          <button class="btn sm" id="scBulkUploadBtn" title="Arşivdeki tüm şarkıları sırayla yükle + Amplify, sonda tek Monetize taraması">Toplu Yükle</button>
-          <button class="btn sm" id="scAutoMonetizeBtn" title="Monetize durumunu kontrol et, reddedilenlere ve yenilere otomatik başvur">Oto Monetize</button>
-          <button class="btn sm" id="grabBtn" title="Açık SoundCloud sayfasını Keşfet ile tara">Sayfayı Tara</button>
+          <div class="sc-pick">
+            <svg class="icon" aria-hidden="true"><use href="#i-music"/></svg>
+            <select id="scTrackSelect" class="sc-upload-pick" title="Yüklenecek indirilen şarkıyı seç" aria-label="Yüklenecek şarkı"></select>
+          </div>
+          <button class="btn sm primary" id="scQuickUploadBtn" title="Seçili şarkıyı yükle + Amplify + otomatik Monetize başvurusu yap"><svg class="icon" aria-hidden="true"><use href="#i-cloud-upload"/></svg><span class="lbl">Yükle</span></button>
+          <button class="btn sm sc-act" id="scBulkUploadBtn" title="Arşivdeki tüm şarkıları sırayla yükle + Amplify, sonda tek Monetize taraması"><svg class="icon" aria-hidden="true"><use href="#i-layers"/></svg><span class="lbl">Toplu Yükle</span></button>
+          <button class="btn sm sc-act" id="scAutoMonetizeBtn" title="Monetize durumunu kontrol et, reddedilenlere ve yenilere otomatik başvur"><svg class="icon" aria-hidden="true"><use href="#i-sparkles"/></svg><span class="lbl">Oto Monetize</span></button>
+          <button class="btn sm sc-act" id="grabBtn" title="Açık SoundCloud sayfasını Keşfet ile tara"><svg class="icon" aria-hidden="true"><use href="#i-scan-search"/></svg><span class="lbl">Sayfayı Tara</span></button>
         </div>
-        <div class="sc-banner hidden" id="scUploadBanner">
-          <span id="scUploadText"></span>
-          <button class="btn sm danger hidden" id="scBulkStop" style="height:22px;padding:0 8px">Durdur</button>
-          <button class="btn sm ghost" id="scBannerClose" style="height:22px;padding:0 6px">✕</button>
+        <div class="sc-banner hidden" id="scUploadBanner" role="status" aria-live="polite">
+          <span class="b-ico" id="scUploadIco"><svg class="icon" aria-hidden="true"><use href="#i-info"/></svg></span>
+          <span class="b-text" id="scUploadText"></span>
+          <button class="btn sm danger hidden" id="scBulkStop" title="Çalışan işlemi durdur"><svg class="icon fill xs" aria-hidden="true"><use href="#i-square"/></svg>Durdur</button>
+          <button class="ico-btn" id="scBannerClose" title="Kapat" aria-label="Kapat"><svg class="icon" aria-hidden="true"><use href="#i-x"/></svg></button>
         </div>
         <div class="sc-viewport" id="scViewport">SoundCloud yükleniyor...</div>
       </section>
@@ -729,23 +928,23 @@ textarea{resize:vertical;min-height:92px;line-height:1.5;font-size:12px}
           <h1 class="page-title" style="margin-bottom:6px">Ayarlar</h1>
 
           <div class="set-sec">
-            <div class="set-h">Arşiv Klasörü</div>
+            <div class="set-h"><span class="s-ico"><svg class="icon" aria-hidden="true"><use href="#i-folder"/></svg></span>Arşiv Klasörü</div>
             <div class="set-d">İndirilen MP3 ve kapak görsellerinin kaydedileceği konum.</div>
             <div class="seg" id="folderPresets" style="margin-bottom:10px">
               <button class="pill" data-folder="music">Müzik</button>
               <button class="pill" data-folder="downloads">İndirilenler</button>
               <button class="pill" data-folder="studio">Stüdyo</button>
-              <button class="pill" id="nativeBrowseBtn">Gözat…</button>
+              <button class="pill" id="nativeBrowseBtn" style="display:inline-flex;align-items:center;gap:6px"><svg class="icon sm" aria-hidden="true"><use href="#i-folder-open"/></svg>Gözat…</button>
             </div>
             <div class="row">
               <input type="text" id="customFolder" placeholder="Özel klasör yolu...">
-              <button class="btn" id="applyFolder">Uygula</button>
+              <button class="btn" id="applyFolder"><svg class="icon" aria-hidden="true"><use href="#i-check"/></svg>Uygula</button>
             </div>
             <div class="path-pill" id="folderPath">—</div>
           </div>
 
           <div class="set-sec">
-            <div class="set-h">Otomatik Başlık Stili</div>
+            <div class="set-h"><span class="s-ico"><svg class="icon" aria-hidden="true"><use href="#i-type"/></svg></span>Otomatik Başlık Stili</div>
             <div class="set-d">İndirme veya yenileme sırasında uygulanacak başlık şablonu.</div>
             <select id="namingStyle">
               <option value="smart_random">Akıllı Rastgele Edit / Remix (Önerilen)</option>
@@ -759,20 +958,32 @@ textarea{resize:vertical;min-height:92px;line-height:1.5;font-size:12px}
           </div>
 
           <div class="set-sec">
-            <div class="set-h">Referans Edit Kanalları &amp; Geçmiş</div>
+            <div class="set-h"><span class="s-ico"><svg class="icon" aria-hidden="true"><use href="#i-image"/></svg></span>Kapak Stili</div>
+            <div class="set-d">Kapak havuzu sınırlı olduğundan aynı görsel zamanla yeniden çıkabilir. Çeşitli ve Cesur modlar her kapağa farklı kırpma, renk tonu ve tane uygular; aynı görsel tekrar seçilse bile ortaya farklı bir kapak çıkar.</div>
+            <div class="seg" id="coverStyleSeg" style="margin-bottom:8px">
+              <button class="pill" data-cover="original">Özgün</button>
+              <button class="pill active" data-cover="varied">Çeşitli</button>
+              <button class="pill" data-cover="bold">Cesur</button>
+            </div>
+            <div style="font-size:12px;color:var(--muted);line-height:1.5" id="coverStyleHint"></div>
+            <div class="path-pill" id="artworkInfo">Havuz bilgisi yükleniyor...</div>
+          </div>
+
+          <div class="set-sec">
+            <div class="set-h"><span class="s-ico"><svg class="icon" aria-hidden="true"><use href="#i-users"/></svg></span>Referans Edit Kanalları &amp; Geçmiş</div>
             <div class="set-d">Her satıra bir SoundCloud profili veya parça listesi ekleyin.</div>
             <textarea id="channels" spellcheck="false"></textarea>
             <div class="row" style="margin-top:8px;justify-content:space-between">
-              <button class="btn sm" id="resetMemory">Geçmişi Sıfırla (<span id="seenCount">0</span>)</button>
-              <button class="btn primary sm" id="saveChannels">Kanalları Kaydet (<span id="channelCount">0</span>)</button>
+              <button class="btn sm" id="resetMemory"><svg class="icon" aria-hidden="true"><use href="#i-rotate-ccw"/></svg>Geçmişi Sıfırla (<span id="seenCount">0</span>)</button>
+              <button class="btn primary sm" id="saveChannels"><svg class="icon" aria-hidden="true"><use href="#i-save"/></svg>Kanalları Kaydet (<span id="channelCount">0</span>)</button>
             </div>
           </div>
 
           <div class="set-sec">
-            <div class="set-h">Sistem &amp; Kısayollar</div>
+            <div class="set-h"><span class="s-ico"><svg class="icon" aria-hidden="true"><use href="#i-keyboard"/></svg></span>Sistem &amp; Kısayollar</div>
             <div class="set-d" id="diagSummary">Yükleniyor...</div>
             <div class="row" style="margin-bottom:12px">
-              <button class="btn sm" id="openDataDirBtn">Veri Klasörünü Aç</button>
+              <button class="btn sm" id="openDataDirBtn"><svg class="icon" aria-hidden="true"><use href="#i-folder-open"/></svg>Veri Klasörünü Aç</button>
             </div>
             <div class="kv">
               <span>Oynat / Duraklat</span><kbd>Boşluk</kbd>
@@ -801,22 +1012,14 @@ textarea{resize:vertical;min-height:92px;line-height:1.5;font-size:12px}
 
     <div class="p-center">
       <div class="p-trans">
-        <button class="tbtn" id="shuffleBtn" title="Karışık">
-          <svg class="icon" viewBox="0 0 24 24"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/><polyline points="21 16 21 21 16 21"/><line x1="15" y1="15" x2="21" y2="21"/><line x1="4" y1="4" x2="9" y2="9"/></svg>
+        <button class="tbtn" id="shuffleBtn" title="Karışık" aria-label="Karışık"><svg class="icon" aria-hidden="true"><use href="#i-shuffle"/></svg></button>
+        <button class="tbtn" id="prevBtn" title="Önceki" aria-label="Önceki"><svg class="icon fill" aria-hidden="true"><use href="#i-skip-back"/></svg></button>
+        <button class="p-play" id="playPauseBtn" title="Oynat / Duraklat (Boşluk)" aria-label="Oynat / Duraklat">
+          <svg class="icon fill" id="playIco" style="margin-left:2px" aria-hidden="true"><use href="#i-play"/></svg>
+          <svg class="icon fill hidden" id="pauseIco" aria-hidden="true"><use href="#i-pause"/></svg>
         </button>
-        <button class="tbtn" id="prevBtn" title="Önceki">
-          <svg class="icon" viewBox="0 0 24 24"><polygon points="19 20 9 12 19 4 19 20" fill="currentColor" stroke="none"/><rect x="5" y="4" width="2" height="16" fill="currentColor" stroke="none"/></svg>
-        </button>
-        <button class="p-play" id="playPauseBtn" title="Oynat / Duraklat (Boşluk)">
-          <svg id="playIco" style="width:14px;height:14px;fill:currentColor;margin-left:2px" viewBox="0 0 24 24"><polygon points="6 4 20 12 6 20"/></svg>
-          <svg id="pauseIco" class="hidden" style="width:14px;height:14px;fill:currentColor" viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>
-        </button>
-        <button class="tbtn" id="nextBtn" title="Sonraki">
-          <svg class="icon" viewBox="0 0 24 24"><polygon points="5 4 15 12 5 20 5 4" fill="currentColor" stroke="none"/><rect x="17" y="4" width="2" height="16" fill="currentColor" stroke="none"/></svg>
-        </button>
-        <button class="tbtn" id="loopBtn" title="Tekrarla">
-          <svg class="icon" viewBox="0 0 24 24"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
-        </button>
+        <button class="tbtn" id="nextBtn" title="Sonraki" aria-label="Sonraki"><svg class="icon fill" aria-hidden="true"><use href="#i-skip-forward"/></svg></button>
+        <button class="tbtn" id="loopBtn" title="Tekrarla" aria-label="Tekrarla"><svg class="icon" aria-hidden="true"><use href="#i-repeat"/></svg></button>
       </div>
       <div class="p-scrub">
         <span class="p-time" id="pCur">0:00</span>
@@ -832,9 +1035,9 @@ textarea{resize:vertical;min-height:92px;line-height:1.5;font-size:12px}
       <canvas id="vizCanvas" width="64" height="18" aria-hidden="true"></canvas>
       <button class="rate-pill" id="rateBtn" title="Oynatma hızı / Slowed önizleme">1.0x</button>
       <div class="vol-wrap">
-        <button class="tbtn" id="muteBtn" title="Sessiz (M)" style="width:24px;height:24px">
-          <svg class="icon" id="volIco" viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/></svg>
-          <svg class="icon hidden" id="muteIco" viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="22" y1="9" x2="16" y2="15"/><line x1="16" y1="9" x2="22" y2="15"/></svg>
+        <button class="tbtn" id="muteBtn" title="Sessiz (M)" aria-label="Sessiz" style="width:28px;height:28px">
+          <svg class="icon" id="volIco" aria-hidden="true"><use href="#i-volume-2"/></svg>
+          <svg class="icon hidden" id="muteIco" aria-hidden="true"><use href="#i-volume-x"/></svg>
         </button>
         <input type="range" class="vol-range" id="volRange" min="0" max="1" step="0.01" value="0.9">
       </div>
@@ -898,6 +1101,25 @@ const esc = (v) => String(v == null ? "" : v).replace(/[&<>"']/g, (c) => ({
   "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
 }[c]));
 
+const ico = (n, cls) =>
+  '<svg class="icon' + (cls ? " " + cls : "") + '" aria-hidden="true"><use href="#i-' + n + '"/></svg>';
+
+/** Düğmeyi simge + etiketle günceller; aynı içerikse DOM'a dokunmaz (dönen simge sıfırlanmasın). */
+function setBtn(el, icon, label, cls) {
+  if (!el) return;
+  const sig = icon + "|" + label + "|" + (cls || "");
+  if (el.dataset.sig === sig) return;
+  el.dataset.sig = sig;
+  el.innerHTML = ico(icon, cls) + (label ? '<span class="lbl">' + esc(label) + "</span>" : "");
+}
+/** Yalnızca etiketi değiştirir, düğmedeki simge kalır. */
+function setLbl(el, text) {
+  if (!el) return;
+  const l = el.querySelector(".lbl");
+  if (!l) el.textContent = text;
+  else if (l.textContent !== text) l.textContent = text;
+}
+
 function nfmt(n) {
   if (!n) return "0";
   if (n >= 1e6) return (n / 1e6).toFixed(1).replace(".0", "") + "M";
@@ -931,7 +1153,10 @@ function sendIpc(payload) {
 function toast(msg, kind) {
   const el = document.createElement("div");
   el.className = "toast " + (kind || "");
-  el.textContent = msg;
+  el.innerHTML = ico(kind === "err" ? "circle-alert" : kind === "ok" ? "circle-check" : "info");
+  const t = document.createElement("span");
+  t.textContent = msg;
+  el.appendChild(t);
   $("toasts").appendChild(el);
   setTimeout(() => { el.style.opacity = "0"; el.style.transition = "opacity .25s"; }, 4200);
   setTimeout(() => el.remove(), 4600);
@@ -951,18 +1176,22 @@ const post = (path, body) => api(path, {
 });
 
 /* ---------------------------------------------------------- NAVİGASYON & DAHİLİ SOUNDCLOUD */
-function syncScWebviewBounds() {
-  const host = $("scViewport");
-  const visible = state.activeTab === "soundcloud"
+function scShouldBeVisible() {
+  return state.activeTab === "soundcloud"
     && $("modalHost").classList.contains("hidden")
     && $("login").classList.contains("hidden")
     && $("app").classList.contains("hidden") === false
-    && host;
-  if (!visible) {
+    && !!$("scViewport");
+}
+function syncScWebviewBounds() {
+  const host = $("scViewport");
+  if (!scShouldBeVisible()) {
     sendIpc({ type: "sc_view", visible: false, x: 0, y: 0, w: 0, h: 0 });
     return;
   }
   const emitBounds = () => {
+    // Geciken çağrı, o arada açılan modalın üstüne WebView'i geri getirmesin.
+    if (!scShouldBeVisible()) return;
     const r = host.getBoundingClientRect();
     if (r.width >= 80 && r.height >= 80) {
       sendIpc({
@@ -976,7 +1205,7 @@ function syncScWebviewBounds() {
     }
   };
   requestAnimationFrame(emitBounds);
-  setTimeout(() => { if (state.activeTab === "soundcloud") emitBounds(); }, 120);
+  setTimeout(emitBounds, 120);
 }
 
 function switchTab(tab) {
@@ -1037,8 +1266,8 @@ function openModal(html, onReady) {
 function showConfirm({ title, body, okText = "Onayla", danger = false }) {
   return new Promise((resolve) => {
     openModal(
-      '<div class="modal-card"><div class="modal-head"><div class="modal-title">' + esc(title) + '</div>' +
-      '<button class="ico-btn" id="mClose">✕</button></div><div class="modal-sub">' + body + '</div>' +
+      '<div class="modal-card"><div class="modal-head"><span class="modal-ico' + (danger ? " danger" : "") + '">' + ico(danger ? "triangle-alert" : "info", "lg") + '</span><div class="modal-title">' + esc(title) + '</div>' +
+      '<button class="ico-btn" id="mClose" aria-label="Kapat">' + ico("x") + '</button></div><div class="modal-sub">' + body + '</div>' +
       '<div class="modal-foot"><button class="btn" id="mCancel">Vazgeç</button>' +
       '<button class="btn ' + (danger ? "danger" : "primary") + '" id="mOk">' + esc(okText) + '</button></div></div>',
       () => {
@@ -1067,8 +1296,8 @@ function openRegenModal(track) {
       '<select id="mStyle" style="margin-top:12px">' + opts + '</select>';
 
   openModal(
-    '<div class="modal-card"><div class="modal-head"><div class="modal-title">' + (isSingle ? "Başlık &amp; Kapak Düzenle" : "Toplu Yenile") + '</div>' +
-    '<button class="ico-btn" id="mClose">✕</button></div><div class="modal-sub" style="margin-bottom:4px">' + body + '</div>' +
+    '<div class="modal-card"><div class="modal-head"><span class="modal-ico">' + ico("sparkles", "lg") + '</span><div class="modal-title">' + (isSingle ? "Başlık &amp; Kapak Düzenle" : "Toplu Yenile") + '</div>' +
+    '<button class="ico-btn" id="mClose" aria-label="Kapat">' + ico("x") + '</button></div><div class="modal-sub" style="margin-bottom:4px">' + body + '</div>' +
     '<div class="modal-foot"><button class="btn" id="mCancel">Vazgeç</button><button class="btn primary" id="mRun">Uygula</button></div></div>',
     () => {
       $("mClose").onclick = closeModal;
@@ -1126,12 +1355,13 @@ function syncUploadButtons() {
   const libMon = $("monetizeSweepBtn");
   if (btn) {
     btn.disabled = busy || !state.tracks.length;
-    btn.textContent = busy ? "İşleniyor..." : "Yükle";
+    setBtn(btn, busy ? "loader" : "cloud-upload", busy ? "İşleniyor" : "Yükle", busy ? "spin" : "");
   }
   if (monBtn) {
     monBtn.disabled = busy;
-    monBtn.textContent = busy ? "Çalışıyor..." : "Oto Monetize";
+    setBtn(monBtn, busy ? "loader" : "sparkles", busy ? "Çalışıyor" : "Oto Monetize", busy ? "spin" : "");
   }
+  if ($("scBulkUploadBtn")) $("scBulkUploadBtn").disabled = busy;
   if (libMon) libMon.disabled = busy;
   if (sel) sel.disabled = busy || !state.tracks.length;
   document.querySelectorAll("#trackList [data-upload]").forEach((b) => {
@@ -1243,7 +1473,7 @@ function openCoverLightbox(src, title) {
   if (!src) return;
   openModal(
     '<div class="modal-card" style="width:400px;text-align:center"><div class="modal-head"><div class="modal-title" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' +
-    esc(title || "Kapak") + '</div><button class="ico-btn" id="mClose">✕</button></div>' +
+    esc(title || "Kapak") + '</div><button class="ico-btn" id="mClose" aria-label="Kapat">' + ico("x") + '</button></div>' +
     '<img class="lightbox-img" src="' + esc(src) + '" onerror="this.src=\'/static/icon.png\'" alt=""></div>',
     () => { $("mClose").onclick = closeModal; }
   );
@@ -1252,7 +1482,7 @@ function openCoverLightbox(src, title) {
 window.__scConfirmExit = function () {
   openModal(
     '<div class="modal-card"><div class="modal-head"><div class="modal-title">İndirme Devam Ediyor</div>' +
-    '<button class="ico-btn" id="mClose">✕</button></div>' +
+    '<button class="ico-btn" id="mClose" aria-label="Kapat">' + ico("x") + '</button></div>' +
     '<div class="modal-sub">Şu anda arka planda parça indiriliyor. Kapatırsanız yarım kalan dosya iptal edilir.</div>' +
     '<div class="modal-foot"><button class="btn" id="mKeep">Devam Et</button><button class="btn danger" id="mExit">Durdur ve Çık</button></div></div>',
     () => {
@@ -1322,9 +1552,12 @@ async function refreshAuth() {
   if (a.signed_in && a.avatar_url) {
     av.className = "";
     av.innerHTML = `<img src="${esc(a.avatar_url)}" alt="">`;
+  } else if (a.signed_in) {
+    av.className = "account-off";
+    av.textContent = (a.username || "?").trim().charAt(0).toUpperCase() || "?";
   } else {
     av.className = "account-off";
-    av.innerHTML = `<svg class="icon" style="width:13px;height:13px" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>`;
+    av.innerHTML = ico("user", "sm");
   }
   toggleCustomBox();
   return state.auth;
@@ -1405,8 +1638,20 @@ function setSource(src) {
   toggleCustomBox();
 }
 
+const COVER_HINTS = {
+  original: "Havuzdaki görsel olduğu gibi kullanılır (yalnızca ortadan kare kırpılır).",
+  varied: "Önerilen. Hafif kırpma, renk tonu ve film tanesi: kapaklar birbirinden ayrışır, görsellerin havası korunur.",
+  bold: "Güçlü yakınlaştırma ve renk dönüşümü: aynı görselden bile birbirine hiç benzemeyen kapaklar çıkar."
+};
+function syncCoverStyle(v) {
+  const val = COVER_HINTS[v] ? v : "varied";
+  $("coverStyleSeg").querySelectorAll(".pill").forEach((b) => b.classList.toggle("active", b.dataset.cover === val));
+  $("coverStyleHint").textContent = COVER_HINTS[val];
+}
+
 function applyConfig(cfg, preset) {
   state.cfg = cfg;
+  syncCoverStyle(cfg.cover_style);
   $("namingStyle").value = cfg.naming_style;
   $("stylePreview").textContent = "Örn: " + (STYLE_SAMPLES[cfg.naming_style] || STYLE_SAMPLES.smart_random);
   setSource(cfg.source_type);
@@ -1449,6 +1694,7 @@ async function loadSettings() {
   applyConfig(data.config, data.target_preset);
   $("folderPath").textContent = data.target_dir;
   $("customFolder").placeholder = "Özel klasör yolu girin...";
+  $("artworkInfo").textContent = "Havuzda " + (data.artwork_count || 0) + " görsel var. Kendi görsellerini Veri Klasörü içindeki artwork_pool klasörüne atabilirsin.";
   if (data.config.sc_client_id) $("advId").value = data.config.sc_client_id;
   if (data.config.sc_redirect_uri) $("advRedirect").value = data.config.sc_redirect_uri;
   return data;
@@ -1537,9 +1783,9 @@ function resetPlayerUi(kindFilter) {
 
 function updateDownloadBtn() {
   const n = state.candView.filter((c) => state.selectedUrls.has(c.url)).length;
-  $("downloadBtn").textContent = n ? "İndir (" + n + ")" : "İndir";
+  setLbl($("downloadBtn"), n ? "İndir (" + n + ")" : "İndir");
   $("downloadBtn").disabled = state.downloading || n === 0;
-  $("selectAll").textContent = state.candView.length && n === state.candView.length ? "Seçimi Kaldır" : "Tümünü Seç";
+  setLbl($("selectAll"), state.candView.length && n === state.candView.length ? "Seçimi Kaldır" : "Tümünü Seç");
   if ($("resetCandsBtn")) $("resetCandsBtn").disabled = state.scanning || state.downloading;
 }
 
@@ -1558,12 +1804,12 @@ function renderCandidates() {
 
   if (!list.length) {
     $("candList").innerHTML =
-      '<div class="empty-clean"><h3>Henüz parça listelenmedi</h3>' +
+      '<div class="empty-clean"><div class="e-ico">' + ico("compass") + '</div><h3>Henüz parça listelenmedi</h3>' +
       '<p>Yukarıdan bir müzik tarzı seçip Tara’ya basabilir veya hızlı ön ayarlardan biriyle başlayabilirsin.</p>' +
       '<div class="quick-links">' +
-        '<button class="btn sm" data-preset="hardtekk,65,7">Hardtekk · Son 7 Gün</button>' +
-        '<button class="btn sm" data-preset="slowed_reverb,65,7">Slowed + Reverb</button>' +
-        '<button class="btn sm" data-preset="phonk,65,7">Brazilian Phonk</button>' +
+        '<button class="btn sm" data-preset="hardtekk,65,7">' + ico("zap") + 'Hardtekk · Son 7 Gün</button>' +
+        '<button class="btn sm" data-preset="slowed_reverb,65,7">' + ico("waves") + 'Slowed + Reverb</button>' +
+        '<button class="btn sm" data-preset="phonk,65,7">' + ico("disc") + 'Brazilian Phonk</button>' +
       '</div></div>';
     $("candList").querySelectorAll("[data-preset]").forEach((b) => {
       b.onclick = () => { const [s, ms, md] = b.dataset.preset.split(","); quickPreset(s, ms, md); };
@@ -1584,17 +1830,15 @@ function renderCandidates() {
     const checked = state.selectedUrls.has(c.url);
     const reasonText = (c.reasons || []).slice(0, 2).map((r) => r.replace(/\s*\([^)]*\)/, "")).join(" · ");
 
-    let actHtml = '<button class="btn sm ghost" data-dl="' + i + '"' + (state.downloading ? " disabled" : "") + '>' + (fail ? "Tekrar" : "İndir") + '</button>';
+    let actHtml = '<button class="btn sm ghost" data-dl="' + i + '"' + (state.downloading ? " disabled" : "") + '>' + ico(fail ? "rotate-cw" : "download") + (fail ? "Tekrar" : "İndir") + '</button>';
     if (dlNow) actHtml = '<span class="row-fmt" style="color:#ffb188">' + esc(state.stage || "İndiriliyor...") + '</span>';
-    else if (done) actHtml = '<span class="done-label">✓ İndirildi</span>';
+    else if (done) actHtml = '<span class="done-label">' + ico("check") + 'İndirildi</span>';
 
     return '<div class="track-row cand' + (playing ? " playing" : "") + '">' +
       '<input type="checkbox" class="chk" data-i="' + i + '"' + (checked ? " checked" : "") + '>' +
       '<div class="cover" data-preview="' + i + '" title="Önizle">' +
         '<img src="' + esc(c.thumbnail) + '" onerror="this.src=\'/static/icon.png\'" alt="">' +
-        '<div class="cover-hover"><svg style="width:14px;height:14px;fill:currentColor" viewBox="0 0 24 24">' +
-          (playing && !$("audio").paused ? '<rect x="6" y="5" width="4" height="14"/><rect x="14" y="5" width="4" height="14"/>' : '<polygon points="6 4 20 12 6 20"/>') +
-        '</svg></div>' +
+        '<div class="cover-hover">' + ico(playing && !$("audio").paused ? "pause" : "play", "fill") + '</div>' +
       '</div>' +
       '<div class="t-main">' +
         '<div class="t-name" title="' + esc(c.title) + '">' + esc(c.title) + '</div>' +
@@ -1658,11 +1902,11 @@ function renderTracks() {
   if ($("clearArchiveBtn")) $("clearArchiveBtn").disabled = !state.tracks.length || state.downloading || state.uploading;
 
   if (!state.tracks.length) {
-    $("trackList").innerHTML = '<div class="empty-clean"><h3>Arşiv boş</h3><p>Keşfet sekmesinden seçip indirdiğin tüm MP3 ve kapaklar burada listelenir.</p></div>';
+    $("trackList").innerHTML = '<div class="empty-clean"><div class="e-ico">' + ico("library") + '</div><h3>Arşiv boş</h3><p>Keşfet sekmesinden seçip indirdiğin tüm MP3 ve kapaklar burada listelenir.</p><div class="quick-links"><button class="btn sm primary" onclick="switchTab(\'discover\')">' + ico("compass") + 'Keşfet\'e git</button></div></div>';
     return;
   }
   if (!list.length) {
-    $("trackList").innerHTML = '<div class="empty-clean"><h3>Eşleşme yok</h3><p>"' + esc(q) + '" aramasına uygun parça bulunamadı.</p></div>';
+    $("trackList").innerHTML = '<div class="empty-clean"><div class="e-ico">' + ico("search") + '</div><h3>Eşleşme yok</h3><p>"' + esc(q) + '" aramasına uygun parça bulunamadı.</p></div>';
     return;
   }
 
@@ -1674,13 +1918,11 @@ function renderTracks() {
     return '<div class="track-row' + (playing ? " playing" : "") + '" data-row="' + i + '">' +
       '<div class="row-idx" data-play="' + i + '" style="cursor:pointer">' +
         (playing ? '<span class="eq' + (paused ? " paused" : "") + '"><i></i><i></i><i></i></span>' : '<span class="num">' + (i + 1) + '</span>') +
-        (!playing ? '<span class="play-glyph"><svg style="width:12px;height:12px;fill:currentColor" viewBox="0 0 24 24"><polygon points="6 4 20 12 6 20"/></svg></span>' : '') +
+        (!playing ? '<span class="play-glyph">' + ico("play", "fill xs") + '</span>' : '') +
       '</div>' +
       '<div class="cover" data-play="' + i + '" title="Çal">' +
         '<img src="' + esc(t.cover_url) + '" onerror="this.src=\'/static/icon.png\'" alt="">' +
-        '<div class="cover-hover"><svg style="width:14px;height:14px;fill:currentColor" viewBox="0 0 24 24">' +
-          (playing && !paused ? '<rect x="6" y="5" width="4" height="14"/><rect x="14" y="5" width="4" height="14"/>' : '<polygon points="6 4 20 12 6 20"/>') +
-        '</svg></div>' +
+        '<div class="cover-hover">' + ico(playing && !paused ? "pause" : "play", "fill") + '</div>' +
       '</div>' +
       '<div class="t-main">' +
         '<div class="t-name" title="' + esc(t.name) + '">' + esc(t.smart_title) + '</div>' +
@@ -1689,10 +1931,10 @@ function renderTracks() {
       '<div class="row-right">' +
         '<span class="row-fmt">' + esc(t.ext === "MP3" ? "MP3 320" : (t.ext || "SES")) + '</span>' +
         '<div class="row-actions">' +
-          '<button class="ico-btn" data-upload="' + i + '"' + (state.uploading ? ' disabled' : '') + ' title="SoundCloud\'a direkt yükle"><svg class="icon" style="width:14px;height:14px" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></button>' +
-          (t.editable ? '<button class="ico-btn" data-regen="' + i + '" title="Başlık &amp; kapak yenile"><svg class="icon" style="width:14px;height:14px" viewBox="0 0 24 24"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/></svg></button>' : '') +
-          '<button class="ico-btn" data-reveal="' + i + '" title="Klasörde göster"><svg class="icon" style="width:14px;height:14px" viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg></button>' +
-          '<button class="ico-btn del" data-del="' + i + '" title="Sil"><svg class="icon" style="width:14px;height:14px" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg></button>' +
+          '<button class="ico-btn" data-upload="' + i + '"' + (state.uploading ? ' disabled' : '') + ' title="SoundCloud\'a direkt yükle" aria-label="SoundCloud\'a yükle">' + ico("cloud-upload") + '</button>' +
+          (t.editable ? '<button class="ico-btn" data-regen="' + i + '" title="Başlık &amp; kapak yenile" aria-label="Başlık ve kapak yenile">' + ico("sparkles") + '</button>' : '') +
+          '<button class="ico-btn" data-reveal="' + i + '" title="Klasörde göster" aria-label="Klasörde göster">' + ico("folder-open") + '</button>' +
+          '<button class="ico-btn del" data-del="' + i + '" title="Sil" aria-label="Sil">' + ico("trash") + '</button>' +
         '</div>' +
       '</div>' +
     '</div>';
@@ -1793,6 +2035,7 @@ function applyVolume(vol, muted, persist) {
   $("volRange").value = String(v);
   $("volIco").classList.toggle("hidden", !!muted || v === 0);
   $("muteIco").classList.toggle("hidden", !muted && v > 0);
+  $("volIco").firstElementChild.setAttribute("href", v < 0.4 ? "#i-volume-1" : "#i-volume-2");
   if (persist) {
     clearTimeout(prefTimer);
     prefTimer = setTimeout(() => patchSettings({ player_volume: v, player_muted: !!muted }), 220);
@@ -1918,16 +2161,25 @@ function applyUploadStatus(st) {
   syncUploadButtons();
   const sig = [st.active, st.filename, st.stage, st.ok, st.error].join("|");
   if (st.active) uploadBannerDismissed = "";
-  if (!st.stage || uploadBannerDismissed === sig) {
+  if ((!st.stage && !st.error) || uploadBannerDismissed === sig) {
     banner.classList.add("hidden");
     if (lastBannerH !== 0) { lastBannerH = 0; syncScWebviewBounds(); }
     return;
   }
   banner.classList.remove("hidden", "ok", "err");
+  banner.classList.toggle("busy", !!st.active && !st.error);
   if (st.error) banner.classList.add("err");
   else if (!st.active && st.ok) banner.classList.add("ok");
-  $("scUploadText").textContent = (state.bulkLabel ? "[" + state.bulkLabel + "] " : "") + (st.filename ? st.filename + " — " : "") + (st.error || st.stage);
-  $("scBulkStop").classList.toggle("hidden", !state.bulkLabel);
+  const iconName = st.error ? "circle-alert" : st.active ? "loader" : st.ok ? "circle-check" : "info";
+  const iconHost = $("scUploadIco");
+  if (iconHost.dataset.n !== iconName) {
+    iconHost.dataset.n = iconName;
+    iconHost.innerHTML = ico(iconName, iconName === "loader" ? "spin" : "");
+  }
+  const bannerText = (state.bulkLabel ? "[" + state.bulkLabel + "] " : "") + (st.filename ? st.filename + " — " : "") + (st.error || st.stage);
+  $("scUploadText").textContent = bannerText;
+  $("scUploadText").title = bannerText;
+  $("scBulkStop").classList.toggle("hidden", !(st.active || state.bulkLabel));
   if (sig !== lastUploadSig) {
     lastUploadSig = sig;
     if (!st.active && st.error) toast(st.error, "err");
@@ -1956,9 +2208,9 @@ async function refreshBrowserBridge() {
     const slug = sc ? (clean.replace(/^https?:\/\/(www\.)?soundcloud\.com/, "") || "/") : "";
     const scannable = sc && !slug.startsWith("/upload") && !slug.startsWith("/signin") && !slug.startsWith("/settings");
     $("grabBtn").disabled = !scannable;
-    $("grabBtn").textContent = (scannable && slug !== "/discover" && slug !== "/")
-      ? ("Tara: " + (slug.length > 20 ? slug.slice(0, 19) + "…" : slug))
-      : "Sayfayı Tara";
+    const specific = scannable && slug !== "/discover" && slug !== "/";
+    setBtn($("grabBtn"), "scan-search", specific ? ("Tara: " + (slug.length > 20 ? slug.slice(0, 19) + "…" : slug)) : "Sayfayı Tara");
+    $("grabBtn").title = specific ? "Bu sayfayı Keşfet ile tara: " + slug : "Açık SoundCloud sayfasını Keşfet ile tara";
   } catch (_) {}
 }
 
@@ -1985,7 +2237,7 @@ async function refreshStatus(force) {
       $("progressBar").style.width = Math.max(5, Math.min(100, Math.round((st.progress || 0) * 100))) + "%";
     }
 
-    $("scanBtn").textContent = state.scanning ? "Durdur" : "Tara";
+    setBtn($("scanBtn"), state.scanning ? "square" : "search", state.scanning ? "Durdur" : "Tara", state.scanning ? "fill" : "");
     $("scanBtn").classList.toggle("primary", !state.scanning);
     $("scanBtn").classList.toggle("danger", state.scanning);
     $("scanBtn").disabled = state.downloading;
@@ -2074,22 +2326,81 @@ $("advSave").onclick = async () => {
   } catch (e) { toast(e.message, "err"); }
 };
 
-$("accountBtn").onclick = async () => {
-  if (state.auth && state.auth.signed_in) {
-    const ok = await showConfirm({
-      title: "Hesaptan Çıkış Yap",
-      body: '<b>' + esc(state.auth.username) + '</b> oturumu kapatılacak. Yerel arşivin korunur.',
-      okText: "Çıkış Yap", danger: true
-    });
-    if (ok) {
-      await post("/api/auth/logout");
-      await refreshAuth();
-      applyUploadStatus({ active: false, ok: false, stage: "", error: null });
-      if (state.activeTab === "soundcloud") switchTab("discover");
-      toast("Çıkış yapıldı. İstediğin hesapla giriş yapabilirsin.");
+async function openAccountMenu() {
+  let accounts = [];
+  try { accounts = (await api("/api/accounts")).accounts || []; } catch (_) {}
+  const cur = state.auth && state.auth.signed_in ? state.auth : null;
+  // Tarayıcı girişiyle (token'sız) bağlı mevcut hesap listede yoksa ayrıca göster.
+  const known = cur && accounts.some((a) => a.user_id === cur.user_id);
+  const initial = (n) => esc((n || "?").trim().charAt(0).toUpperCase() || "?");
+  const avatar = (a) => a.avatar_url
+    ? '<img class="acc-av" src="' + esc(a.avatar_url) + '" alt="">'
+    : '<span class="acc-av">' + initial(a.username) + '</span>';
+  const row = (a, active, removable) =>
+    '<div class="acc-row' + (active ? " active" : "") + '" data-uid="' + esc(a.user_id) + '">' +
+      avatar(a) + '<span class="acc-nm">' + esc(a.username) + '</span>' +
+      (active
+        ? '<span class="acc-state" title="Aktif hesap">' + ico("circle-check") + '</span>'
+        : (removable ? '<button class="ico-btn del" data-rm="' + esc(a.user_id) + '" title="Listeden kaldır" aria-label="Listeden kaldır">' + ico("x", "sm") + '</button>' : "")) +
+    '</div>';
+  const rows =
+    (cur && !known ? row({ user_id: "", username: cur.username, avatar_url: cur.avatar_url }, true, false) : "") +
+    accounts.map((a) => row(a, a.active, true)).join("");
+  openModal(
+    '<div class="modal-card" style="width:350px"><div class="modal-head">' +
+    '<span class="modal-ico">' + ico("users", "lg") + '</span><div class="modal-title">Hesaplar</div>' +
+    '<button class="ico-btn" id="mClose" aria-label="Kapat">' + ico("x") + '</button></div>' +
+    '<div class="modal-sub" style="margin-bottom:6px">' + (rows ? "Geçmek istediğin hesaba tıkla." : "Kayıtlı hesap yok. Bir hesap ekleyerek başla.") + '</div>' +
+    (rows ? '<div class="acc-list">' + rows + '</div>' : "") +
+    '<div class="modal-foot" style="justify-content:space-between;margin-top:8px">' +
+    '<button class="btn" id="accAdd">' + ico("user-plus") + 'Hesap ekle</button>' +
+    (cur ? '<button class="btn danger" id="accOut">' + ico("log-out") + 'Çıkış yap</button>' : "") +
+    '</div></div>',
+    () => {
+      $("mClose").onclick = closeModal;
+      $("accAdd").onclick = () => { closeModal(); showLogin(true); };
+      const out = $("accOut");
+      if (out) out.onclick = async () => {
+        closeModal();
+        await post("/api/auth/logout");
+        await refreshAuth();
+        applyUploadStatus({ active: false, ok: false, stage: "", error: null });
+        if (state.activeTab === "soundcloud") switchTab("discover");
+        toast("Çıkış yapıldı. Hesabın listede kayıtlı, istediğin zaman geri geçebilirsin.");
+      };
+      document.querySelectorAll("#modalHost [data-rm]").forEach((btn) => {
+        btn.onclick = async (e) => {
+          e.stopPropagation();
+          await post("/api/accounts/remove", { user_id: btn.dataset.rm });
+          closeModal();
+          openAccountMenu();
+        };
+      });
+      document.querySelectorAll("#modalHost .acc-row").forEach((rowEl) => {
+        rowEl.onclick = async () => {
+          const uid = rowEl.dataset.uid;
+          if (rowEl.classList.contains("active")) { closeModal(); return; }
+          closeModal();
+          try {
+            const res = await post("/api/accounts/switch", { user_id: uid });
+            await refreshAuth();
+            toast("Geçildi: " + (res.username || "hesap"), "ok");
+          } catch (e) { toast(e.message, "err"); }
+        };
+      });
     }
-  } else showLogin(true);
-};
+  );
+}
+
+$("accountBtn").onclick = openAccountMenu;
+
+$("coverStyleSeg").querySelectorAll(".pill").forEach((btn) => {
+  btn.onclick = async () => {
+    syncCoverStyle(btn.dataset.cover);
+    await patchSettings({ cover_style: btn.dataset.cover });
+    toast("Kapak stili kaydedildi. Yeni indirmelerde ve yenilemelerde uygulanır.", "ok");
+  };
+});
 
 $("sourceTabs").querySelectorAll(".tab").forEach((t) => {
   t.onclick = () => { setSource(t.dataset.src); saveSettingsFromUi(); };
@@ -2125,6 +2436,7 @@ $("resetCandsBtn").onclick = async () => {
 };
 
 $("clearArchiveBtn").onclick = async () => {
+  closePopovers();
   if (!state.tracks.length) return;
   if (state.downloading || state.uploading) { toast("Aktif indirme veya yükleme varken temizlenemez.", "err"); return; }
   const ok = await showConfirm({
@@ -2188,9 +2500,12 @@ $("scAutoMonetizeBtn").onclick = runMonetizeSweep;
 $("scBulkUploadBtn").onclick = bulkUploadAll;
 $("bulkUploadBtn").onclick = bulkUploadAll;
 $("scBulkStop").onclick = async () => {
-  state.bulkStop = true;
+  if (state.bulkLabel) state.bulkStop = true;
   try { await post("/api/upload/cancel"); } catch (_) {}
-  toast("Toplu yükleme durduruluyor...", "ok");
+  state.uploading = false;
+  syncUploadButtons();
+  refreshUploadStatus();
+  toast(state.bulkLabel ? "Toplu yükleme durduruluyor..." : "İşlem durduruldu.", "ok");
 };
 $("scBannerClose").onclick = () => {
   uploadBannerDismissed = lastUploadSig || "closed";

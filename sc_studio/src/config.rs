@@ -80,6 +80,8 @@ pub struct Config {
     pub playback_rate: f64,
     pub library_sort: String,
     pub cand_sort: String,
+    /// Kapak üretimi: "original" | "varied" | "bold" (bkz. `coverfx`).
+    pub cover_style: String,
 }
 
 impl Default for Config {
@@ -110,6 +112,7 @@ impl Default for Config {
             playback_rate: 1.0,
             library_sort: "recent".into(),
             cand_sort: "score".into(),
+            cover_style: "varied".into(),
         }
     }
 }
@@ -144,6 +147,9 @@ impl Config {
         }
         if !matches!(self.cand_sort.as_str(), "score" | "views" | "likes" | "recent") {
             self.cand_sort = "score".into();
+        }
+        if !matches!(self.cover_style.as_str(), "original" | "varied" | "bold") {
+            self.cover_style = "varied".into();
         }
         self
     }

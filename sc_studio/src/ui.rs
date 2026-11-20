@@ -1203,6 +1203,7 @@ pub fn run(port: u16, state: Arc<crate::state::AppState>) -> ! {
     let mut pending_upload: Option<(UploadJob, u64, Option<Instant>)> = None;
     let mut monetize_seq: u64 = 0;
     let mut pending_monetize: Option<(MonetizeJob, u64, Option<Instant>)> = None;
+    let mut auth_wall_since: Option<Instant> = None;
     // Tarayıcı penceresi giriş için mi açıldı? (Giriş bitince kendiliğinden kapanır.)
     let mut opened_for_login = false;
     let mut main_shown = false;
@@ -1502,6 +1503,31 @@ pub fn run(port: u16, state: Arc<crate::state::AppState>) -> ! {
                     pending_upload = None;
                 }
             }
+        }
+
+        // artists.soundcloud.com oturum açtırmaya yönlendirdiyse (web-auth/signin) takılma, hatayı göster.
+        if pending_monetize.is_some() {
+            let on_wall = sc_webview
+                .as_ref()
+                .and_then(|wv| wv.url().ok())
+                .map(|u| u.contains("secure.soundcloud.com/web-auth") || u.contains("soundcloud.com/signin"))
+                .unwrap_or(false);
+            if on_wall {
+                let since = *auth_wall_since.get_or_insert_with(Instant::now);
+                if since.elapsed() >= Duration::from_secs(6) {
+                    pending_monetize = None;
+                    auth_wall_since = None;
+                    let mut st = state.upload_status.blocking_write();
+                    st.active = false;
+                    st.ok = false;
+                    st.stage.clear();
+                    st.error = Some("artists.soundcloud.com oturumu kapalı — SoundCloud sekmesindeki formdan bir kez giriş yap, sonra tekrar dene.".into());
+                }
+            } else {
+                auth_wall_since = None;
+            }
+        } else {
+            auth_wall_since = None;
         }
 
         // Bekleyen monetize işlemi: artists.soundcloud.com açılınca enjekte et.

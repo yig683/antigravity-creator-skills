@@ -10,11 +10,13 @@
 
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod accounts;
 mod api;
 mod artwork;
 mod auth;
 mod assets;
 mod config;
+mod coverfx;
 mod download;
 mod id3;
 mod jobobj;
