@@ -1,5 +1,7 @@
 //! Masaüstü penceresi (tao + wry → WebView2) ve uygulama içi tarayıcı.
 
+use crate::accounts::Identity;
+use crate::session::{restore_cookies, set_soundcloud_oauth_cookie, snapshot_cookies, wipe_session_blocking};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tao::dpi::{PhysicalPosition, PhysicalSize, Size};
@@ -59,6 +61,12 @@ pub enum UiEvent {
     ScNavigate(String),
     /// WebView2 SoundCloud çerezlerini ve tarama verisini temizler (temiz çıkış).
     ScClearSession,
+    /// Hesap ekle: mevcut oturumu kaydet, temiz bir oturumla giriş penceresini aç.
+    AddAccount,
+    /// Hesap değiştir: önceki hesabın oturumunu kaydet, hedef hesabın oturumunu yükle.
+    SwitchAccount { from: Identity, to: String },
+    /// Hesabın oturum çerezlerini kaydet (çıkıştan / token değişiminden önce).
+    SnapshotAccount(Identity),
     /// Kullanıcı tarafından verilen SoundCloud oauth_token çerezini WebView2'ye yükler.
     ScSetOauthCookie(String),
     /// Arşivdeki bir MP3 + kapağı doğrudan SoundCloud /upload formuna aktar.
@@ -1069,6 +1077,12 @@ fn handle_ipc(state: &crate::state::AppState, page: &str, body: &str) {
 
     let auth = {
         let mut cur = state.auth.blocking_write();
+        if cur.user_id != id {
+            // Başka bir hesaba geçildi: önceki hesabın API belirteçleri bu kimliğe ait değil.
+            cur.access_token.clear();
+            cur.refresh_token.clear();
+            cur.expires_at = 0;
+        }
         cur.user_id = id;
         cur.username = username;
         let av = s("avatar_url");
@@ -1206,6 +1220,8 @@ pub fn run(port: u16, state: Arc<crate::state::AppState>) -> ! {
     let mut auth_wall_since: Option<Instant> = None;
     // Tarayıcı penceresi giriş için mi açıldı? (Giriş bitince kendiliğinden kapanır.)
     let mut opened_for_login = false;
+    // "Hesap ekle" sırasında oturumu kapatılan önceki hesap (iptal edilirse geri yüklenir).
+    let mut pending_add_prev: Option<String> = None;
     let mut main_shown = false;
     let boot_at = Instant::now();
     let mut exit_prompt_at: Option<Instant> = None;
@@ -1261,9 +1277,18 @@ pub fn run(port: u16, state: Arc<crate::state::AppState>) -> ! {
                     );
                 } else {
                     // Tarayıcı penceresi kapatıldı; bekleyen giriş de iptal, eski adres temizlensin.
+                    let was_pending = state.login_pending.swap(false, Ordering::SeqCst);
                     browser = None;
                     opened_for_login = false;
-                    state.login_pending.store(false, Ordering::SeqCst);
+                    if was_pending {
+                        if let Some(prev) = pending_add_prev.take() {
+                            // Yeni hesap eklenmeden pencere kapandı: önceki hesabın oturumunu geri yükle.
+                            if !restore_account_session(&state, &main_webview, sc_webview.as_ref(), &prev) {
+                                *state.auth.blocking_write() = Default::default();
+                                let _ = crate::auth::clear();
+                            }
+                        }
+                    }
                     if !sc_visible {
                         state.browser_open.store(false, Ordering::Relaxed);
                     }
@@ -1413,7 +1438,57 @@ pub fn run(port: u16, state: Arc<crate::state::AppState>) -> ! {
                 }
             }
 
+            Event::UserEvent(UiEvent::AddAccount) => {
+                // 1) Mevcut hesabın oturumunu kaydet (çıkış yapmadan önce, çerezler hâlâ yerinde).
+                let cur = Identity::from(&*state.auth.blocking_read());
+                if cur.is_valid() {
+                    snapshot_account(&main_webview, &cur);
+                    if pending_add_prev.is_none() {
+                        pending_add_prev = Some(cur.user_id.clone());
+                    }
+                }
+                // 2) Temiz oturum: yoksa SoundCloud giriş sayfası aynı hesaba otomatik girer.
+                browser = None;
+                sc_webview = None;
+                sc_visible = false;
+                pending_upload = None;
+                pending_monetize = None;
+                state.browser_open.store(false, Ordering::Relaxed);
+                clear_webview_sc_session(&main_webview);
+                // 3) Giriş penceresini aç; hesap algılanınca LoginDetected ile kapanır.
+                state.login_pending.store(true, Ordering::SeqCst);
+                if let Ok(slot) = state.ui_tx.lock() {
+                    if let Some(proxy) = slot.as_ref() {
+                        let _ = proxy.send_event(UiEvent::OpenBrowser(Some(SIGNIN_URL.to_string())));
+                    }
+                }
+            }
+
+            Event::UserEvent(UiEvent::SwitchAccount { from, to }) => {
+                if from.is_valid() && from.user_id != to {
+                    snapshot_account(&main_webview, &from);
+                }
+                browser = None;
+                opened_for_login = false;
+                pending_add_prev = None;
+                pending_upload = None;
+                pending_monetize = None;
+                state.login_pending.store(false, Ordering::SeqCst);
+                state.browser_open.store(sc_visible, Ordering::Relaxed);
+                if !restore_account_session(&state, &main_webview, sc_webview.as_ref(), &to) {
+                    // Kayıtlı oturum yüklenemedi: çıkış yapılmış gibi temiz başla.
+                    clear_webview_sc_session(&main_webview);
+                    *state.auth.blocking_write() = Default::default();
+                    let _ = crate::auth::clear();
+                }
+            }
+
+            Event::UserEvent(UiEvent::SnapshotAccount(id)) => {
+                snapshot_account(&main_webview, &id);
+            }
+
             Event::UserEvent(UiEvent::ScClearSession) => {
+                pending_add_prev = None;
                 sc_webview = None;
                 sc_visible = false;
                 browser = None;
@@ -1429,6 +1504,7 @@ pub fn run(port: u16, state: Arc<crate::state::AppState>) -> ! {
             }
 
             Event::UserEvent(UiEvent::ScSetOauthCookie(tok)) => {
+                pending_add_prev = None;
                 let _ = set_soundcloud_oauth_cookie(&main_webview, &tok);
                 browser = None;
                 opened_for_login = false;
@@ -1473,6 +1549,10 @@ pub fn run(port: u16, state: Arc<crate::state::AppState>) -> ! {
             }
 
             Event::UserEvent(UiEvent::LoginDetected) => {
+                // Giriş yapılan (yeni) hesabın oturumunu hesap listesine kaydet.
+                let id = Identity::from(&*state.auth.blocking_read());
+                snapshot_account(&main_webview, &id);
+                pending_add_prev = None;
                 if opened_for_login {
                     browser = None;
                     opened_for_login = false;
@@ -1687,51 +1767,55 @@ fn create_browser_window(
     Some((window, webview))
 }
 
-fn delete_non_local_cookies(webview: &WebView) {
-    let mut to_delete = Vec::new();
-    if let Ok(all) = webview.cookies() {
-        for c in all {
-            let dom = c.domain().unwrap_or("");
-            if !dom.contains("127.0.0.1") && !dom.eq_ignore_ascii_case("localhost") {
-                to_delete.push(c);
-            }
-        }
-    }
-    for origin in [
-        "https://soundcloud.com",
-        "https://m.soundcloud.com",
-        "https://secure.soundcloud.com",
-        "https://artists.soundcloud.com",
-        "https://api-v2.soundcloud.com",
-        "https://accounts.google.com",
-        "https://appleid.apple.com",
-        "https://www.facebook.com",
-    ] {
-        if let Ok(list) = webview.cookies_for_url(origin) {
-            to_delete.extend(list);
-        }
-    }
-    for c in to_delete {
-        let _ = webview.delete_cookie(&c);
-    }
-}
-
+/// Çerezleri ve tarama verisini siler (silme bitene kadar bekler).
 fn clear_webview_sc_session(webview: &WebView) {
-    delete_non_local_cookies(webview);
-    let _ = webview.clear_all_browsing_data();
+    wipe_session_blocking(webview);
 }
 
-fn set_soundcloud_oauth_cookie(webview: &WebView, token: &str) -> wry::Result<()> {
-    delete_non_local_cookies(webview);
-    let cookie = wry::cookie::Cookie::build(("oauth_token", token.to_string()))
-        .domain(".soundcloud.com")
-        .path("/")
-        .secure(true)
-        .http_only(false)
-        .same_site(wry::cookie::SameSite::Lax)
-        .max_age(wry::cookie::time::Duration::days(30))
-        .build();
-    webview.set_cookie(&cookie)
+/// Hesabın oturumunu kaydeder. Giriş çerezi yoksa (oturum kapalı) kayıtlı çerezleri
+/// bozmaz, yalnızca kimliği günceller.
+fn snapshot_account(webview: &WebView, id: &Identity) {
+    if !id.is_valid() {
+        return;
+    }
+    let recs = snapshot_cookies(webview);
+    if crate::cookies::has_login_cookie(&recs) {
+        crate::accounts::upsert_session(id, None, Some(&recs));
+    } else {
+        crate::accounts::upsert_session(id, None, None);
+    }
+}
+
+/// Kayıtlı hesabın oturumunu (önce çerez anlık görüntüsü, olmazsa token) WebView2'ye yükler
+/// ve uygulama kimliğini ayarlar. Kayıtlı oturum yoksa `false` döner.
+fn restore_account_session(
+    state: &crate::state::AppState,
+    main_webview: &WebView,
+    sc_webview: Option<&WebView>,
+    user_id: &str,
+) -> bool {
+    let Some(entry) = crate::accounts::get(user_id) else {
+        return false;
+    };
+    let mut restored = false;
+    if let Some(recs) = crate::accounts::load_cookies(user_id) {
+        restored = restore_cookies(main_webview, &recs) > 0;
+    }
+    if !restored {
+        if let Some(tok) = crate::accounts::token_for(user_id) {
+            restored = set_soundcloud_oauth_cookie(main_webview, &tok).is_ok();
+        }
+    }
+    if !restored {
+        return false;
+    }
+    let auth = Identity::from(&entry).to_auth();
+    *state.auth.blocking_write() = auth.clone();
+    let _ = crate::auth::save(&auth);
+    if let Some(wv) = sc_webview {
+        let _ = wv.load_url("https://soundcloud.com/discover");
+    }
+    true
 }
 
 fn initial_window_geometry(

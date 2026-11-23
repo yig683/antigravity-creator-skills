@@ -42,6 +42,9 @@ pub struct Track {
     pub artwork_url: Option<String>,
     pub created_at: Option<String>,
     pub description: String,
+    /// SoundCloud'daki tür ve etiket alanları (çoğu parçada boş; varsa alaka kontrolüne yardım eder).
+    pub genre: String,
+    pub tags: String,
     pub streamable: bool,
     pub blocked: bool,
     pub transcodings: Vec<Transcoding>,
@@ -128,6 +131,16 @@ impl Track {
                 .map(str::to_string),
             description: v
                 .get("description")
+                .and_then(Value::as_str)
+                .unwrap_or_default()
+                .to_string(),
+            genre: v
+                .get("genre")
+                .and_then(Value::as_str)
+                .unwrap_or_default()
+                .to_string(),
+            tags: v
+                .get("tag_list")
                 .and_then(Value::as_str)
                 .unwrap_or_default()
                 .to_string(),
@@ -327,6 +340,38 @@ impl ScClient {
             params.push(("filter.created_at", f.to_string()));
         }
         let v = self.get(&format!("{}/search/tracks", API), &params).await?;
+        Ok(collection(&v))
+    }
+
+    /// Tür/etiket süzgeciyle arama (`filter.genre_or_tag`). Anahtar kelime aramasından çok daha
+    /// isabetli: aynı tarih aralığında etiketli parçaların dinlenmesi belirgin biçimde yüksek.
+    pub async fn search_tag(
+        &self,
+        tag: &str,
+        created_filter: Option<&str>,
+        offset: usize,
+    ) -> Result<Vec<Track>> {
+        let mut params = vec![
+            ("q", String::new()),
+            ("limit", "50".to_string()),
+            ("offset", offset.to_string()),
+            ("filter.genre_or_tag", tag.to_string()),
+        ];
+        if let Some(f) = created_filter {
+            params.push(("filter.created_at", f.to_string()));
+        }
+        let v = self.get(&format!("{}/search/tracks", API), &params).await?;
+        Ok(collection(&v))
+    }
+
+    /// SoundCloud'un "benzer parçalar" listesi (oynatıcının otomatik öneri akışı).
+    pub async fn related(&self, track_id: &str, limit: usize) -> Result<Vec<Track>> {
+        let v = self
+            .get(
+                &format!("{}/tracks/{}/related", API, track_id),
+                &[("limit", limit.to_string())],
+            )
+            .await?;
         Ok(collection(&v))
     }
 

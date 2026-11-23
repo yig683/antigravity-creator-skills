@@ -98,6 +98,10 @@ cp target/release/soundcloud-studio.exe dist/SoundCloudStudio.exe
 │                ikiz görseller + 800×800       │
 │  coverfx.rs    kapak çeşitlendirme (kırpma,   │
 │                renk tonu, tane; `cover_style`)│
+│  accounts.rs   çoklu hesap listesi (DPAPI)    │
+│  cookies.rs    çerez kaydı biçimi (alan/ana   │
+│                makine ayrımı)                 │
+│  session.rs    WebView2 çerez oku/sil/yükle   │
 │  id3.rs  162  elle yazılmış ID3v2.3           │
 │  config.rs 166 ayarlar (atomik yazma)         │
 │  main.rs 160  bootstrap + sunucu thread'i     │

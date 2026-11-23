@@ -535,6 +535,7 @@ select.sort-sel,select.sort-sel:focus{width:auto;height:32px;padding:0 30px 0 11
 }
 .acc-nm{flex:1;min-width:0;font-weight:600;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .acc-state{display:grid;place-items:center;color:var(--accent)}
+.acc-note{font-size:10.5px;font-weight:600;color:var(--warn);background:rgba(245,158,11,.1);padding:2px 8px;border-radius:99px;white-space:nowrap}
 .modal-sub{font-size:12.5px;color:var(--dim);line-height:1.55;margin-bottom:14px}
 .modal-foot{display:flex;justify-content:flex-end;gap:8px;margin-top:16px}
 .lightbox-img{width:100%;max-width:360px;aspect-ratio:1/1;object-fit:cover;border-radius:10px;display:block;margin:8px auto 0}
@@ -809,6 +810,14 @@ select.sort-sel,select.sort-sel:focus{width:auto;height:32px;padding:0 30px 0 11
                       <button class="pill" data-val="85">85+ Zirve</button>
                     </div>
                   </div>
+                  <div class="pop-group">
+                    <span class="pop-label" title="Seçili aralıkta yeterli popüler parça çıkmazsa, aynı türden daha eski ve çok dinlenmiş parçalarla (en çok 1 yıl) tamamlar. Kapalıyken yalnızca seçili aralığa bakılır.">Az çıkarsa aralığı genişlet</span>
+                    <div class="seg" id="expandSeg">
+                      <button class="pill active" data-val="1">Açık</button>
+                      <button class="pill" data-val="0">Kapalı</button>
+                    </div>
+                  </div>
+                  <input type="hidden" id="expand" value="1">
                   <input type="hidden" id="maxDays" value="7">
                   <input type="hidden" id="count" value="5">
                   <input type="hidden" id="minViews" value="10000">
@@ -1566,6 +1575,8 @@ async function refreshAuth() {
 let loginWatcher = null;
 async function signIn() {
   const a = state.auth || {};
+  // Oturum açıkken "giriş yap" aynı hesaba otomatik girerdi; bunun anlamı yeni hesap eklemek.
+  if (a.signed_in) { startAddAccount(); return; }
   try {
     if (a.configured) {
       await post("/api/auth/start");
@@ -1586,6 +1597,33 @@ async function signIn() {
       } else if (ticks > 300) clearInterval(loginWatcher);
     }, 2000);
   } catch (e) { toast(e.message, "err"); }
+}
+
+/** Mevcut oturumu kaydeder, temiz bir oturumla giriş penceresi açar ve hesabın eklenmesini izler. */
+async function startAddAccount() {
+  if (state.uploading) { toast("Yükleme sürerken hesap eklenemez.", "err"); return; }
+  const before = (state.auth && state.auth.user_id) || "";
+  try {
+    await post("/api/accounts/add");
+  } catch (e) { toast(e.message, "err"); return; }
+  hideLogin();
+  toast("Giriş penceresi açıldı. Eklemek istediğin hesapla giriş yap; mevcut hesabın listede kalır.", "ok");
+  clearInterval(loginWatcher);
+  let ticks = 0;
+  loginWatcher = setInterval(async () => {
+    ticks++;
+    const a = await refreshAuth();
+    if (!a.login_pending) {
+      clearInterval(loginWatcher);
+      loginWatcher = null;
+      if (a.signed_in && a.user_id !== before) toast("Hesap eklendi: " + a.username, "ok");
+      else toast("Hesap ekleme iptal edildi; önceki hesabına dönüldü.");
+      syncScWebviewBounds();
+    } else if (ticks > 300) {
+      clearInterval(loginWatcher);
+      loginWatcher = null;
+    }
+  }, 1500);
 }
 
 async function completeOnboarding() {
@@ -1659,6 +1697,7 @@ function applyConfig(cfg, preset) {
   syncSeg("countSeg", "count", String(cfg.track_count));
   syncSeg("minViewsSeg", "minViews", String(cfg.min_views));
   syncSeg("minScoreSeg", "minScore", String(cfg.min_score));
+  syncSeg("expandSeg", "expand", cfg.expand_search === false ? "0" : "1");
   updateFilterSummary();
   $("customInput").value = cfg.custom_input || "";
   $("channels").value = (cfg.channels || []).join("\n");
@@ -1682,6 +1721,7 @@ function saveSettingsFromUi() {
       track_count: parseInt($("count").value, 10),
       min_views: parseInt($("minViews").value, 10),
       min_score: parseInt($("minScore").value, 10),
+      expand_search: $("expand").value === "1",
       library_sort: $("libSort").value,
       cand_sort: $("candSort").value
     });
@@ -1722,7 +1762,8 @@ async function startScan() {
     count: parseInt($("count").value, 10),
     max_days: parseFloat($("maxDays").value),
     min_views: parseInt($("minViews").value, 10),
-    naming_style: $("namingStyle").value
+    naming_style: $("namingStyle").value,
+    expand: $("expand").value === "1"
   };
   if (payload.source === "custom_url" && !payload.custom_input) {
     toast("Arama terimi veya SoundCloud bağlantısı girin.", "err");
@@ -2339,6 +2380,7 @@ async function openAccountMenu() {
   const row = (a, active, removable) =>
     '<div class="acc-row' + (active ? " active" : "") + '" data-uid="' + esc(a.user_id) + '">' +
       avatar(a) + '<span class="acc-nm">' + esc(a.username) + '</span>' +
+      (!active && a.has_session === false ? '<span class="acc-note" title="Kayıtlı oturum yok; geçmek için yeniden giriş gerekir">oturum yok</span>' : "") +
       (active
         ? '<span class="acc-state" title="Aktif hesap">' + ico("circle-check") + '</span>'
         : (removable ? '<button class="ico-btn del" data-rm="' + esc(a.user_id) + '" title="Listeden kaldır" aria-label="Listeden kaldır">' + ico("x", "sm") + '</button>' : "")) +
@@ -2353,12 +2395,21 @@ async function openAccountMenu() {
     '<div class="modal-sub" style="margin-bottom:6px">' + (rows ? "Geçmek istediğin hesaba tıkla." : "Kayıtlı hesap yok. Bir hesap ekleyerek başla.") + '</div>' +
     (rows ? '<div class="acc-list">' + rows + '</div>' : "") +
     '<div class="modal-foot" style="justify-content:space-between;margin-top:8px">' +
-    '<button class="btn" id="accAdd">' + ico("user-plus") + 'Hesap ekle</button>' +
+    '<div style="display:flex;gap:6px">' +
+    '<button class="btn" id="accAdd" title="Temiz bir oturumla SoundCloud giriş penceresini açar">' + ico("user-plus") + 'Hesap ekle</button>' +
+    '<button class="btn ghost" id="accAddToken" title="Chrome\'dan kopyaladığın oauth_token ile ekle">' + ico("link") + 'Token ile</button>' +
+    '</div>' +
     (cur ? '<button class="btn danger" id="accOut">' + ico("log-out") + 'Çıkış yap</button>' : "") +
     '</div></div>',
     () => {
       $("mClose").onclick = closeModal;
-      $("accAdd").onclick = () => { closeModal(); showLogin(true); };
+      $("accAdd").onclick = () => { closeModal(); startAddAccount(); };
+      $("accAddToken").onclick = () => {
+        closeModal();
+        showLogin(true);
+        const d = document.querySelector("#login details.adv");
+        if (d) d.open = true;
+      };
       const out = $("accOut");
       if (out) out.onclick = async () => {
         closeModal();
@@ -2383,8 +2434,14 @@ async function openAccountMenu() {
           closeModal();
           try {
             const res = await post("/api/accounts/switch", { user_id: uid });
+            await sleepMs(900);
             await refreshAuth();
-            toast("Geçildi: " + (res.username || "hesap"), "ok");
+            if (state.auth && state.auth.signed_in && state.auth.user_id === uid) {
+              toast("Geçildi: " + (res.username || "hesap"), "ok");
+              if (state.activeTab === "soundcloud") syncScWebviewBounds();
+            } else {
+              toast("Bu hesabın kayıtlı oturumu geçersiz. 'Hesap ekle' ile yeniden giriş yap.", "err");
+            }
           } catch (e) { toast(e.message, "err"); }
         };
       });
@@ -2409,6 +2466,7 @@ bindSeg("maxDaysSeg", "maxDays");
 bindSeg("countSeg", "count");
 bindSeg("minViewsSeg", "minViews");
 bindSeg("minScoreSeg", "minScore");
+bindSeg("expandSeg", "expand");
 
 $("scanBtn").onclick = startScan;
 $("cancelOpBtn").onclick = cancelCurrentOp;

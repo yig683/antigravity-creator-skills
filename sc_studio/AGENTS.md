@@ -40,6 +40,20 @@ tail -1 "%APPDATA%\SoundCloudStudio\studio.log"   # → http://127.0.0.1:PORT
 - `audio/mpegurl` MP3 **değil** (abr_sq HLS listesi). MP3 testi: `sc::is_mp3_mime`.
 - ID3 yalnızca `.mp3`'e yazılır; FLAC/WAV/M4A'ya yazmak dosyayı bozar.
 - Canlı test için `APPDATA`'yı geçici klasöre yönlendir; gerçek veriye dokunma.
+- WebView2 çerezi: alan çerezi (`.soundcloud.com`, alt alan adlarına da gider) yazmak için
+  `Cookie::domain("..soundcloud.com")` ver (cookie kütüphanesi baştaki TEK noktayı atar);
+  noktasız alan yalnızca ana makine çerezi olur. `delete_cookie` iki biçimi ayrı sayar →
+  `session::delete_cookie_all_variants`. `clear_all_browsing_data` asenkron → hemen ardından
+  çerez yazmadan önce `session::wipe_session_blocking` kullan.
+- Hesap geçişi çerez anlık görüntüsüyle yapılır (`accounts.json`, DPAPI); token yalnızca yedek
+  (web tokenı ~1 saatlik olabilir). Çerez hattını gerçek WebView2'de doğrula:
+  `cargo run --example cookie_probe -- <geçici klasör>` (hata varsa çıkış kodu 1).
+- `UiEvent::AddAccount` oturumu kaydedip temizler; giriş penceresi kapatılırsa önceki hesap geri yüklenir.
+- Tarama: SoundCloud'da son 14 günde 100K+ dinlenmeli parça neredeyse hiç yok; eskiden liste en az
+  dinlenenlerle doluyordu. `expand_search` (varsayılan açık) aralık dışından, türe uygun
+  (`scan::is_relevant`) ve çok dinlenmiş parçalarla tamamlar; sıralama `scan::rank/tier_of`
+  (testli). Kaynaklar: `filter.genre_or_tag` aramaları ve `/tracks/{id}/related`. Aralık dışı
+  parçalarda alaka süzgeci şart: yalnızca dinlenme, dizi müziği/pop gibi alakasızları da geçirir.
 
 ## Yığın
 

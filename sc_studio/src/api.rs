@@ -41,6 +41,7 @@ pub fn router(state: Shared) -> Router {
         .route("/api/auth/web-login", post(auth_web_login))
         .route("/api/auth/token-login", post(auth_token_login))
         .route("/api/accounts", get(accounts_list))
+        .route("/api/accounts/add", post(accounts_add))
         .route("/api/accounts/switch", post(accounts_switch))
         .route("/api/accounts/remove", post(accounts_remove))
         .route("/api/onboarding/complete", post(onboarding_complete))
@@ -464,6 +465,9 @@ fn merge_config(cfg: &mut Config, patch: &Value) {
     if let Some(v) = obj.get("cand_sort").and_then(Value::as_str) {
         cfg.cand_sort = v.to_string();
     }
+    if let Some(v) = obj.get("expand_search").and_then(Value::as_bool) {
+        cfg.expand_search = v;
+    }
     if let Some(v) = obj.get("cover_style").and_then(Value::as_str) {
         if matches!(v, "original" | "varied" | "bold") {
             cfg.cover_style = v.to_string();
@@ -528,6 +532,8 @@ struct ScanReq {
     min_views: i64,
     #[serde(default)]
     naming_style: Option<String>,
+    #[serde(default)]
+    expand: Option<bool>,
 }
 
 fn default_source() -> String {
@@ -566,6 +572,9 @@ async fn start_scan(State(state): State<Shared>, Json(req): Json<ScanReq>) -> Re
         if let Some(style) = &req.naming_style {
             cfg.naming_style = style.clone();
         }
+        if let Some(e) = req.expand {
+            cfg.expand_search = e;
+        }
         let cfg = cfg.sanitized();
         *state.cfg.write().await = cfg.clone();
         let _ = config::save(&cfg);
@@ -594,6 +603,7 @@ async fn start_scan(State(state): State<Shared>, Json(req): Json<ScanReq>) -> Re
             cfg_now.track_count,
             cfg_now.max_days,
             cfg_now.min_views,
+            cfg_now.expand_search,
         )
         .await
         {
@@ -1337,6 +1347,7 @@ async fn auth_status(State(state): State<Shared>) -> Json<Value> {
         "builtin": crate::config::Config::oauth_builtin(),
         "has_client_secret": !cfg.oauth_client_secret().is_empty(),
         "has_oauth_token": !auth.access_token.is_empty(),
+        "login_pending": state.login_pending.load(std::sync::atomic::Ordering::SeqCst),
     }))
 }
 
@@ -1395,6 +1406,11 @@ async fn auth_manual(State(state): State<Shared>, Json(req): Json<ManualAuthReq>
 }
 
 async fn auth_logout(State(state): State<Shared>) -> Response {
+    let prev = crate::accounts::Identity::from(&*state.auth.read().await);
+    if prev.is_valid() {
+        // Sıralı gider: oturum çerezleri silinmeden önce kaydedilir.
+        let _ = send_ui(&state, crate::ui::UiEvent::SnapshotAccount(prev));
+    }
     let _ = crate::auth::clear();
     state
         .login_pending
@@ -1474,16 +1490,13 @@ async fn auth_token_login(State(state): State<Shared>, Json(req): Json<TokenLogi
         ..Default::default()
     };
     let _ = crate::auth::save(&auth);
-    crate::accounts::upsert(
-        crate::accounts::AccountEntry {
-            user_id: auth.user_id.clone(),
-            username: auth.username.clone(),
-            avatar_url: auth.avatar_url.clone(),
-            permalink_url: auth.permalink_url.clone(),
-            token_enc: String::new(),
-        },
-        &token,
-    );
+    let new_id = crate::accounts::Identity::from(&auth);
+    crate::accounts::upsert_session(&new_id, Some(&token), None);
+    // Çerezler token ile değişmeden önce önceki hesabın oturumunu kaydet.
+    let prev = crate::accounts::Identity::from(&*state.auth.read().await);
+    if prev.is_valid() && prev.user_id != new_id.user_id {
+        let _ = send_ui(&state, crate::ui::UiEvent::SnapshotAccount(prev));
+    }
     *state.auth.write().await = auth;
     state
         .login_pending
@@ -1503,6 +1516,7 @@ async fn accounts_list(State(state): State<Shared>) -> Json<Value> {
                 "username": a.username,
                 "avatar_url": a.avatar_url,
                 "active": !active.is_empty() && a.user_id == active,
+                "has_session": !a.cookies_enc.is_empty() || !a.token_enc.is_empty(),
             })
         })
         .collect();
@@ -1518,15 +1532,60 @@ async fn accounts_switch(State(state): State<Shared>, Json(req): Json<AccountIdR
     if state.upload_status.read().await.active {
         return json_error(StatusCode::CONFLICT, "Yükleme sürerken hesap değiştirilemez.");
     }
+    let Some(entry) = crate::accounts::get(&req.user_id) else {
+        return json_error(StatusCode::NOT_FOUND, "Hesap bulunamadı.");
+    };
+    let from = crate::accounts::Identity::from(&*state.auth.read().await);
+
+    // 1) Kayıtlı tam oturum (çerezler): süre sorunu yok, yenileme çerezleri dahil.
+    if crate::accounts::has_cookies(&req.user_id) {
+        // Kimlik hemen güncellenir; çerezleri arayüz thread'i yükler.
+        let auth = crate::accounts::Identity::from(&entry).to_auth();
+        let _ = crate::auth::save(&auth);
+        *state.auth.write().await = auth;
+        state
+            .login_pending
+            .store(false, std::sync::atomic::Ordering::SeqCst);
+        let resp = send_ui(
+            &state,
+            crate::ui::UiEvent::SwitchAccount { from, to: req.user_id.clone() },
+        );
+        if !resp.status().is_success() {
+            return resp;
+        }
+        return Json(json!({ "success": true, "username": entry.username })).into_response();
+    }
+
+    // 2) Yalnızca token kayıtlıysa eski yol (token süresi dolmuş olabilir).
     let Some(token) = crate::accounts::token_for(&req.user_id) else {
-        return json_error(StatusCode::NOT_FOUND, "Bu hesabın kayıtlı token'ı yok. Hesabı yeniden ekle.");
+        return json_error(
+            StatusCode::NOT_FOUND,
+            "Bu hesabın kayıtlı oturumu yok. 'Hesap ekle' ile yeniden giriş yap.",
+        );
     };
     let resp = auth_token_login(State(state), Json(TokenLoginReq { token })).await;
     if resp.status() == StatusCode::UNAUTHORIZED {
         return json_error(
             StatusCode::UNAUTHORIZED,
-            "Bu hesabın token'ının süresi dolmuş. 'Hesap ekle' ile yeni token gir.",
+            "Bu hesabın token'ının süresi dolmuş. 'Hesap ekle' ile yeniden giriş yap.",
         );
+    }
+    resp
+}
+
+/// "Hesap ekle": mevcut oturumu kaydeder, temiz oturumla SoundCloud giriş penceresini açar.
+async fn accounts_add(State(state): State<Shared>) -> Response {
+    if state.upload_status.read().await.active {
+        return json_error(StatusCode::CONFLICT, "Yükleme sürerken hesap eklenemez.");
+    }
+    state
+        .login_pending
+        .store(true, std::sync::atomic::Ordering::SeqCst);
+    let resp = send_ui(&state, crate::ui::UiEvent::AddAccount);
+    if !resp.status().is_success() {
+        state
+            .login_pending
+            .store(false, std::sync::atomic::Ordering::SeqCst);
     }
     resp
 }

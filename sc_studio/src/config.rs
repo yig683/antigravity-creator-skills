@@ -82,6 +82,8 @@ pub struct Config {
     pub cand_sort: String,
     /// Kapak üretimi: "original" | "varied" | "bold" (bkz. `coverfx`).
     pub cover_style: String,
+    /// Seçilen aralıkta yeterli popüler parça yoksa taramayı eski ve benzer parçalarla genişlet.
+    pub expand_search: bool,
 }
 
 impl Default for Config {
@@ -113,6 +115,7 @@ impl Default for Config {
             library_sort: "recent".into(),
             cand_sort: "score".into(),
             cover_style: "varied".into(),
+            expand_search: true,
         }
     }
 }
